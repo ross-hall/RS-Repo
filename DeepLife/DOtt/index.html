@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Dot DNA</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --app-bg: #04051a;
+    --panel-bg: #0a0b1e;
+    --panel-border: #1d1f38;
+    --ink: #eceefb;
+    --ink-dim: #8688a3;
+    --accent: #6d72a8;
+    --accent-ink: #f4f5fb;
+    --track: #23253e;
+  }
+  *{ box-sizing:border-box; }
+  html,body{ margin:0; height:100%; background:var(--app-bg); color:var(--ink);
+    font-family:'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace; }
+  .app{ display:flex; height:100vh; width:100vw; overflow:hidden; }
+
+  .sidebar{
+    width:270px; min-width:270px; background:var(--panel-bg);
+    border-right:1px solid var(--panel-border);
+    display:flex; flex-direction:column; overflow-y:auto;
+  }
+  .sidebar-head{ padding:20px 18px 14px; border-bottom:1px solid var(--panel-border); }
+  .eyebrow{ font-size:10px; letter-spacing:.16em; text-transform:uppercase; color:var(--accent); font-weight:600; margin-bottom:4px; }
+  .sidebar-head h1{ font-size:16px; margin:0 0 3px; font-weight:600; letter-spacing:-.01em; color:var(--ink); }
+  .sidebar-head p{ font-size:11px; color:var(--ink-dim); margin:0; line-height:1.5; }
+
+  .section{ padding:16px 18px; border-bottom:1px solid var(--panel-border); }
+  .section h2{ font-size:10px; text-transform:uppercase; letter-spacing:.1em; color:var(--ink-dim); margin:0 0 12px; font-weight:600; }
+
+  label.field{ display:block; font-size:11px; color:var(--ink-dim); margin:14px 0 6px; }
+  label.field:first-child{ margin-top:0; }
+  .range-val{ float:right; color:var(--accent); font-weight:600; }
+  input[type=range]{
+    width:100%; -webkit-appearance:none; appearance:none; height:3px; border-radius:2px;
+    background:var(--track); outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:13px; height:13px; border-radius:50%;
+    background:var(--accent); cursor:pointer; border:2px solid var(--panel-bg); box-shadow:0 0 0 1px var(--accent);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:13px; height:13px; border-radius:50%; background:var(--accent); cursor:pointer; border:2px solid var(--panel-bg); box-shadow:0 0 0 1px var(--accent);
+  }
+  input[type=number]{
+    width:100%; background:#12142a; border:1px solid var(--panel-border); color:var(--ink);
+    border-radius:6px; padding:7px 9px; font-family:inherit; font-size:12.5px;
+  }
+
+  .toggle-row{ display:flex; gap:8px; }
+  .toggle-row button{
+    flex:1; background:transparent; color:var(--ink-dim); border:1px solid var(--panel-border);
+  }
+  .toggle-row button.active{ background:var(--accent); color:var(--accent-ink); border-color:var(--accent); }
+  .toggle-row button:hover:not(.active){ border-color:var(--accent); color:var(--ink); }
+
+  .color-row{ display:flex; align-items:center; gap:10px; }
+  input[type=color]{
+    -webkit-appearance:none; appearance:none; width:34px; height:34px; padding:0;
+    border:1px solid var(--panel-border); border-radius:8px; background:none; cursor:pointer; flex-shrink:0;
+  }
+  input[type=color]::-webkit-color-swatch-wrapper{ padding:3px; }
+  input[type=color]::-webkit-color-swatch{ border:none; border-radius:5px; }
+  input[type=color]::-moz-color-swatch{ border:none; border-radius:5px; }
+  .color-hex{ font-size:11.5px; color:var(--ink-dim); letter-spacing:.02em; }
+
+  button{
+    font-family:inherit; font-size:12.5px; font-weight:600; cursor:pointer;
+    border-radius:7px; border:1px solid transparent; padding:10px 14px; width:100%;
+    transition: transform .08s ease, background .15s, border-color .15s, opacity .15s;
+  }
+  button:active{ transform:scale(0.98); }
+  button:disabled{ opacity:.5; cursor:default; transform:none; }
+  .btn-primary{ background:var(--accent); color:var(--accent-ink); }
+  .btn-primary:hover:not(:disabled){ background:#8388c4; }
+  .btn-secondary{ background:transparent; color:var(--ink); border-color:var(--panel-border); }
+  .btn-secondary:hover:not(:disabled){ border-color:var(--accent); color:var(--accent); }
+
+  .checkbox-row{ display:flex; align-items:center; gap:8px; font-size:12px; color:var(--ink-dim); cursor:pointer; margin-top:12px; }
+  .checkbox-row:first-child{ margin-top:0; }
+  .checkbox-row input{ accent-color:var(--accent); width:14px; height:14px; }
+
+  .status-line{ font-size:10.5px; color:var(--accent); margin-top:10px; min-height:13px; line-height:1.5; }
+  .footer-space{ flex:1; }
+  .hint{ font-size:10.5px; color:var(--ink-dim); line-height:1.6; }
+
+  .stage-wrap{ flex:1; position:relative; display:flex; align-items:center; justify-content:center; background:var(--app-bg); }
+  .stage-card{
+    border-radius:12px; overflow:hidden; box-shadow:0 24px 60px -20px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.05);
+    width:min(84vw,84vh); height:min(84vw,84vh);
+  }
+  canvas{ display:block; width:100%; height:100%; }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-head">
+      <div class="eyebrow">Reciprocal Space</div>
+      <h1>Dot DNA</h1>
+      <p>A rotating scatter built from one dot motif — DNA helix or clustered cloud — no connecting lines.</p>
+    </div>
+
+    <div class="section">
+      <h2>Shape</h2>
+      <div class="toggle-row">
+        <button class="active" id="btn-shape-dna">DNA</button>
+        <button id="btn-shape-cloud">Cloud</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Structure</h2>
+      <label class="field">Count <span class="range-val" id="val-count">220</span></label>
+      <input type="range" id="rng-count" min="20" max="500" step="5" value="220">
+
+      <div id="dna-fields">
+        <label class="field">Length <span class="range-val" id="val-length">1.65×</span></label>
+        <input type="range" id="rng-length" min="0.6" max="2.5" step="0.05" value="1.65">
+
+        <label class="field">Pitch <span class="range-val" id="val-pitch">1.0 turns</span></label>
+        <input type="range" id="rng-pitch" min="1" max="6" step="0.5" value="1">
+      </div>
+
+      <div id="cloud-fields" hidden>
+        <label class="field">Zones <span class="range-val" id="val-zones">8</span></label>
+        <input type="range" id="rng-zones" min="4" max="12" step="1" value="8">
+
+        <label class="field">Spread <span class="range-val" id="val-spread">1.00×</span></label>
+        <input type="range" id="rng-spread" min="0.6" max="1.8" step="0.05" value="1">
+
+        <button class="btn-secondary" id="btn-shuffle" style="margin-top:14px;">Shuffle pattern ⟲</button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Appearance</h2>
+      <label class="field">Scatter <span class="range-val" id="val-scatter">30%</span></label>
+      <input type="range" id="rng-scatter" min="0" max="100" step="1" value="30">
+
+      <label class="field">Size <span class="range-val" id="val-size">100%</span></label>
+      <input type="range" id="rng-size" min="40" max="220" step="5" value="100">
+
+      <label class="field">Size variability <span class="range-val" id="val-sizevar">100%</span></label>
+      <input type="range" id="rng-sizevar" min="0" max="150" step="5" value="100">
+
+      <label class="field">Twinkle <span class="range-val" id="val-twinkle">45%</span></label>
+      <input type="range" id="rng-twinkle" min="0" max="100" step="1" value="45">
+    </div>
+
+    <div class="section">
+      <h2>Colors</h2>
+      <div id="dot-color-field">
+        <label class="field">Dot color</label>
+        <div class="color-row">
+          <input type="color" id="clr-dot" value="#3c3f58">
+          <span class="color-hex" id="val-dot-color">#3C3F58</span>
+        </div>
+      </div>
+      <div class="hint" id="cloud-color-note" hidden style="margin:0 0 14px; padding:0; border-top:none;">
+        Cloud zones use a fixed 10-color categorical palette, cycling if there are more than 10 zones.
+      </div>
+
+      <label class="field">Background color</label>
+      <div class="color-row">
+        <input type="color" id="clr-bg" value="#04051a">
+        <span class="color-hex" id="val-bg-color">#04051A</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Motion</h2>
+      <div id="cloud-motion-fields" hidden>
+        <label class="checkbox-row"><input type="checkbox" id="chk-rotate" checked> Rotate</label>
+        <label class="checkbox-row"><input type="checkbox" id="chk-morph"> Morph through patterns</label>
+      </div>
+
+      <label class="field">Speed <span class="range-val" id="val-speed">1.0×</span></label>
+      <input type="range" id="rng-speed" min="0.25" max="3" step="0.05" value="1">
+
+      <label class="field">Angle <span class="range-val" id="val-angle">25°</span></label>
+      <input type="range" id="rng-angle" min="-90" max="90" step="1" value="25">
+    </div>
+
+    <div class="section">
+      <h2>Export</h2>
+      <label class="field">Loops</label>
+      <input type="number" id="num-loops" min="1" max="6" value="1">
+      <button class="btn-primary" id="btn-export" style="margin-top:10px;">Export video (.mp4)</button>
+      <div class="status-line" id="status"></div>
+    </div>
+
+    <div class="footer-space"></div>
+    <div class="section" style="border-bottom:none;">
+      <div class="hint">
+        Rotation is continuous, so any speed loops seamlessly — Loops just
+        records more turns in one file. MP4 export uses Chrome/Edge's own
+        built-in recorder; other browsers can still view the live animation.
+      </div>
+    </div>
+  </div>
+
+  <div class="stage-wrap">
+    <div class="stage-card"><canvas id="stage"></canvas></div>
+  </div>
+</div>
+
+<script>
+(function(){
+
+  // ====================== TUNABLES ======================
+  const VB = 760;              // world-space stage size (square) — the strand can run longer than this and simply crops at the edges
+  const RADIUS = 90;           // helix radius (strand-to-axis distance), world units
+  const LENGTH_BASE = 520;     // vertical extent of the helix at Length = 1×, world units
+  const BASE_PERIOD_SEC = 8;   // seconds per revolution at speed 1.0×
+  const DOT_OUTER_R = 5;       // base outer-ring radius, world units — the reference dot's muted disc
+  const DOT_INNER_R = 2;       // base white-core radius, world units
+  // Scatter (0–100%) maps onto both jitter axes together — how far a dot can
+  // stray perpendicular to the strand's true centerline (world units), and
+  // how far it can stray from its even along-strand slot (as a fraction of
+  // slot spacing). 0% is a clean, evenly-spaced double helix; 100% pushes
+  // both most of the way toward losing the shape entirely.
+  const SCATTER_JITTER_MAX = 26;
+  const SLOT_JITTER_MAX = 0.95;
+  // Twinkle (0–100%) scales a per-dot size pulse. Each dot pulses at its own
+  // random INTEGER multiple of the rotation angle and its own random phase —
+  // integer frequencies are what keep this exactly loop-safe: sin(freq*rot)
+  // is unchanged whenever rot advances by a full 2π (one full revolution,
+  // the animation's own loop point), for any integer freq, regardless of
+  // rotation speed. Different per-dot frequencies/phases desync the dots
+  // from each other so they don't pulse in unison.
+  const TWINKLE_AMPLITUDE_MAX = 0.55;
+  const TWINKLE_FREQ_MIN = 2, TWINKLE_FREQ_MAX = 7; // integer cycles per revolution
+
+  // Cloud shape: a t-SNE-style scatter of colored clusters ("zones"), built
+  // from the exact same dot motif as DNA. Each zone gets a blob center, its
+  // own radius and point-count weight, and (sometimes) a trailing "tendril"
+  // direction so zones read as irregular, organic blobs rather than perfect
+  // circles — closer to how a real embedding plot looks.
+  const CLOUD_PALETTE = ['#4C78C8','#F28E2B','#54A24B','#E15759','#9D6FC4','#8C6D5C','#E377C2','#9AA0A6','#B5BD2E','#54C4C4'];
+  const CLOUD_AREA = 620;          // side length of the square zone-center placement area, world units
+  const CLOUD_BLOB_MIN = 45, CLOUD_BLOB_MAX = 105; // per-zone blob radius range, world units, before Spread/Scatter scaling
+  const CLOUD_TENDRIL_CHANCE = 0.4;
+  const CLOUD_TENDRIL_LEN_MIN = 1.6, CLOUD_TENDRIL_LEN_MAX = 3.2; // multiple of the zone's own blob radius
+  const CLOUD_TENDRIL_POINT_FRAC = 0.28; // fraction of a tendril zone's points placed along the tendril
+  const CLOUD_DEPTH_NORM = 380; // reference radius for depth normalization — Cloud's r values run much larger than DNA's fixed RADIUS
+  // Morph: Cloud keeps 4 fixed, independently-shuffled keyframe patterns
+  // (built once per Shuffle/regenerate — never re-randomized mid-loop, or
+  // every cycle would look different and the loop would break). One full
+  // rotation period (rot advancing by 2π — the scene's own established loop
+  // point) maps to exactly one full lap through all 4 keyframes and back to
+  // the first, so the morph and the rotation always complete together: the
+  // cloud moves to a new pattern 3 times (keyframes 1, 2, 3), then the 4th
+  // transition returns it to the exact pattern it started with.
+  const CLOUD_MORPH_KEYFRAMES = 4;
+
+  const VIDEO_FPS = 30;
+  const VIDEO_DIM = 1080;
+  const VIDEO_BITRATE = 12_000_000;
+
+  // The dot's core always stays white — it's the fixed highlight that reads
+  // against any dot/background color combination. Dot (disc) color and
+  // background color are both user-adjustable — see STATE below. Cloud zone
+  // colors come from CLOUD_PALETTE instead, baked into each point.
+  const CORE = '#ffffff';
+
+  // ====================== STATE ======================
+  let shapeMode = 'dna'; // 'dna' | 'cloud'
+  let count = 220, pitch = 1, speedMult = 1, angleDeg = 25, scatterPct = 30;
+  let lengthMult = 1.65, sizePct = 100, sizeVarPct = 100, twinklePct = 45;
+  let dotColor = '#3c3f58', bgColor = '#04051a';
+  let cloudZones = 8, cloudSpread = 1;
+  let cloudRotate = true, cloudMorph = false;
+  let cloudKeyframes = null; // 4 fixed patterns for Morph, built alongside `points` whenever shape/structure changes
+  let points = []; // flat array, built by regenerateLayout() — every point has {r, theta0, y, dx, dy, ...}
+  let rotation = 0;
+  let lastTs = null;
+  let rafId = null;
+
+  const canvas = document.getElementById('stage');
+  let ctx = canvas.getContext('2d'); // drawScene always draws through this — export retargets it temporarily
+
+  // ---- layout: every point (DNA or Cloud) is projected the same way at draw
+  // time: theta = theta0 + rotation; x = cx + r*cos(theta); z = r*sin(theta);
+  // y is fixed (the rotation axis is vertical). DNA gives every dot the SAME
+  // r (=RADIUS) and varies theta0 (a true helix, constant radius); Cloud
+  // gives every point theta0=0 and a per-point signed r (its horizontal
+  // offset from center) — a flat 2D scatter that spins edge-on through its
+  // own plane, like a rotating coin. One shared draw path, two layouts.
+  function regenerateLayout(){
+    if(shapeMode === 'dna'){
+      points = buildDnaPoints();
+      cloudKeyframes = null;
+    } else {
+      // 4 independently-shuffled patterns, fixed until the next Shuffle/regen
+      cloudKeyframes = [];
+      for(let k=0;k<CLOUD_MORPH_KEYFRAMES;k++) cloudKeyframes.push(buildCloudPoints());
+      points = cloudKeyframes[0]; // the non-Morph static view
+    }
+  }
+
+  // Blends between two of the fixed Cloud keyframes for the current instant
+  // of a continuously-advancing `rot` — see CLOUD_MORPH_KEYFRAMES above for
+  // why this is loop-safe. Position (r, y) is interpolated; color/size/
+  // twinkle identity always comes from keyframe 0, so a dot's "personality"
+  // stays stable across the morph and only its position moves.
+  function computeMorphedPoints(rot){
+    const cyclePos = ((rot % (Math.PI*2)) / (Math.PI*2)) * CLOUD_MORPH_KEYFRAMES;
+    const segIndex = Math.floor(cyclePos) % CLOUD_MORPH_KEYFRAMES;
+    const nextIndex = (segIndex+1) % CLOUD_MORPH_KEYFRAMES;
+    const localT = cyclePos - Math.floor(cyclePos);
+    const eased = localT*localT*(3-2*localT); // smoothstep — avoids a velocity snap at each keyframe boundary
+    const a = cloudKeyframes[segIndex], b = cloudKeyframes[nextIndex], meta = cloudKeyframes[0];
+    const out = new Array(a.length);
+    for(let i=0;i<a.length;i++){
+      const pa = a[i], pb = b[i], pm = meta[i];
+      out[i] = {
+        r: pa.r + (pb.r-pa.r)*eased,
+        theta0: 0,
+        y: pa.y + (pb.y-pa.y)*eased,
+        dx: 0, dy: 0,
+        zoneColor: pm.zoneColor,
+        rawSizeFactor: pm.rawSizeFactor,
+        twinkleFreq: pm.twinkleFreq, twinklePhase: pm.twinklePhase, twinkleAmpMul: pm.twinkleAmpMul
+      };
+    }
+    return out;
+  }
+
+  // shared per-point randomization: raw size factor (blended toward uniform
+  // by Size variability at draw time) and this dot's own twinkle pulse
+  function makePointMeta(){
+    return {
+      rawSizeFactor: 0.4 + Math.pow(Math.random(), 1.8)*1.4,
+      twinkleFreq: TWINKLE_FREQ_MIN + Math.floor(Math.random()*(TWINKLE_FREQ_MAX-TWINKLE_FREQ_MIN+1)),
+      twinklePhase: Math.random()*Math.PI*2,
+      twinkleAmpMul: 0.5 + Math.random()*0.7
+    };
+  }
+
+  // Each dot sits near an even slot along its strand, but both its along-
+  // strand position and its perpendicular offset get randomized within a
+  // bounded range — a real scatter, not a rigid grid, while staying close
+  // enough to the ideal helix curve to still read as two coherent strands.
+  function buildDnaPoints(){
+    const strandSpan = LENGTH_BASE*lengthMult;
+    const cy = VB/2;
+    const yTop = cy - strandSpan/2;
+    const slotSpacing = count > 1 ? 1/(count-1) : 0;
+    const scatterFrac = scatterPct/100;
+    const scatterJitter = SCATTER_JITTER_MAX*scatterFrac;
+    const slotJitter = SLOT_JITTER_MAX*scatterFrac;
+
+    const pts = [];
+    ['A','B'].forEach(strand => {
+      const phase = strand === 'B' ? Math.PI : 0;
+      for(let i=0;i<count;i++){
+        const slot = count > 1 ? i/(count-1) : 0.5;
+        const u = Math.max(0, Math.min(1, slot + (Math.random()-0.5)*slotSpacing*slotJitter*2));
+        const a = Math.random()*Math.PI*2, rr = Math.sqrt(Math.random())*scatterJitter;
+        pts.push({
+          r: RADIUS,
+          theta0: u*Math.PI*2*pitch + phase,
+          y: yTop + u*strandSpan,
+          dx: Math.cos(a)*rr, dy: Math.sin(a)*rr,
+          ...makePointMeta()
+        });
+      }
+    });
+    return pts;
+  }
+
+  // A t-SNE-style scatter of colored clusters, built from the same dot
+  // motif. Zone centers are placed with simple rejection sampling so they
+  // don't pile on each other; each zone is an off-circle blob (a random
+  // stretch axis keeps them from all being perfect circles) and sometimes
+  // grows a thinning "tendril" — a small fraction of its points laid out
+  // along a random direction instead of scattered radially — so the cloud
+  // reads as organic cluster shapes rather than uniform dots.
+  function buildCloudPoints(){
+    const cy = VB/2;
+    const scatterFrac = scatterPct/100;
+    const tightness = 0.35 + scatterFrac*1.3; // Scatter reused here as blob looseness
+    const areaHalf = CLOUD_AREA*cloudSpread/2;
+    const minCenterDist = (CLOUD_BLOB_MIN+CLOUD_BLOB_MAX)/2 * 0.9;
+
+    const centers = [];
+    for(let i=0;i<cloudZones;i++){
+      let zx, zy, tries = 0;
+      do{
+        zx = (Math.random()*2-1)*areaHalf;
+        zy = (Math.random()*2-1)*areaHalf;
+        tries++;
+      } while(tries < 40 && centers.some(c => Math.hypot(c.x-zx, c.y-zy) < minCenterDist));
+      centers.push({ x: zx, y: zy });
+    }
+
+    const pts = [];
+    centers.forEach((center, zi) => {
+      const color = CLOUD_PALETTE[zi % CLOUD_PALETTE.length];
+      const blobR = (CLOUD_BLOB_MIN + Math.random()*(CLOUD_BLOB_MAX-CLOUD_BLOB_MIN)) * tightness;
+      const stretchAngle = Math.random()*Math.PI*2;
+      const stretchX = 0.7 + Math.random()*0.7, stretchY = 0.7 + Math.random()*0.7;
+      const hasTendril = Math.random() < CLOUD_TENDRIL_CHANCE;
+      const tendrilAngle = Math.random()*Math.PI*2;
+      const tendrilLen = blobR * (CLOUD_TENDRIL_LEN_MIN + Math.random()*(CLOUD_TENDRIL_LEN_MAX-CLOUD_TENDRIL_LEN_MIN));
+
+      for(let i=0;i<count;i++){
+        let px, py;
+        if(hasTendril && Math.random() < CLOUD_TENDRIL_POINT_FRAC){
+          const t = Math.pow(Math.random(), 0.6); // biased toward the tip, so it thins out
+          const along = t*tendrilLen;
+          const perp = (Math.random()-0.5)*2 * blobR*0.3*(1-t*0.8); // taper the tendril's own thickness
+          const ax = Math.cos(tendrilAngle), ay = Math.sin(tendrilAngle);
+          px = ax*along - ay*perp;
+          py = ay*along + ax*perp;
+        } else {
+          const angle = Math.random()*Math.PI*2;
+          const radius = Math.sqrt(Math.random())*blobR;
+          const lx = Math.cos(angle)*radius*stretchX, ly = Math.sin(angle)*radius*stretchY;
+          px = lx*Math.cos(stretchAngle) - ly*Math.sin(stretchAngle);
+          py = lx*Math.sin(stretchAngle) + ly*Math.cos(stretchAngle);
+        }
+        pts.push({
+          r: center.x + px,
+          theta0: 0,
+          y: cy + center.y + py,
+          dx: 0, dy: 0,
+          zoneColor: color,
+          ...makePointMeta()
+        });
+      }
+    });
+    return pts;
+  }
+
+  function rotate2D(x, y, cx, cy, rad){
+    const dx = x-cx, dy = y-cy;
+    const c = Math.cos(rad), s = Math.sin(rad);
+    return { x: cx + dx*c - dy*s, y: cy + dx*s + dy*c };
+  }
+
+  // norm is the reference radius for this shape mode — DNA's fixed helix
+  // RADIUS, or Cloud's much larger point-spread constant. Clamped: Cloud's
+  // per-point r can exceed the norm out near a zone's outer edge, and an
+  // unclamped t would blow depthScale/depthOpacity outside their real range.
+  function depthT(z, norm){ return Math.max(0, Math.min(1, (z/norm + 1)/2)); } // 0 = far, 1 = near
+  function depthScale(t){ return 0.6 + t*0.6; }    // 0.6 – 1.2
+  function depthOpacity(t){ return 0.4 + t*0.6; }  // 0.4 – 1.0
+
+  // ---- draws the full scene into ctx, in world coordinates (0..VB), at the given rotation/angle ----
+  function drawScene(rot, angleRad){
+    const cx = VB/2, cy = VB/2;
+
+    ctx.fillStyle = bgColor;
+    ctx.fillRect(0, 0, VB, VB);
+
+    const sizeScale = sizePct/100;
+    const sizeVarFrac = sizeVarPct/100;
+    const twinkleFrac = twinklePct/100;
+    const depthNorm = shapeMode === 'dna' ? RADIUS : CLOUD_DEPTH_NORM;
+
+    // spinRot drives the 3D projection only; rot itself (the true,
+    // always-advancing clock) still drives twinkle and the Morph cycle even
+    // when Rotate is off — turning the visual spin off "freezes the camera",
+    // it doesn't stop the animation's underlying clock.
+    const spinRot = (shapeMode === 'cloud' && !cloudRotate) ? 0 : rot;
+    const framePoints = (shapeMode === 'cloud' && cloudMorph && cloudKeyframes)
+      ? computeMorphedPoints(rot)
+      : points;
+
+    const items = [];
+    framePoints.forEach(d => {
+      const theta = d.theta0 + spinRot;
+      const x = cx + d.r*Math.cos(theta);
+      const z = d.r*Math.sin(theta);
+      const p = rotate2D(x+d.dx, d.y+d.dy, cx, cy, angleRad);
+      const twinkle = 1 + TWINKLE_AMPLITUDE_MAX*twinkleFrac*d.twinkleAmpMul*Math.sin(d.twinkleFreq*rot + d.twinklePhase);
+      const sizeMul = (1 + (d.rawSizeFactor-1)*sizeVarFrac) * sizeScale * Math.max(0.05, twinkle);
+      items.push({ x:p.x, y:p.y, z, sizeMul, color: d.zoneColor });
+    });
+
+    items.sort((a,b) => a.z - b.z);
+    items.forEach(it => {
+      const t = depthT(it.z, depthNorm);
+      const s = depthScale(t) * it.sizeMul;
+      const op = depthOpacity(t);
+      ctx.globalAlpha = op;
+      ctx.fillStyle = it.color || dotColor;
+      ctx.beginPath(); ctx.arc(it.x, it.y, DOT_OUTER_R*s, 0, Math.PI*2); ctx.fill();
+      ctx.globalAlpha = Math.max(op, 0.85);
+      ctx.fillStyle = CORE;
+      ctx.beginPath(); ctx.arc(it.x, it.y, DOT_INNER_R*s, 0, Math.PI*2); ctx.fill();
+    });
+    ctx.globalAlpha = 1;
+  }
+
+  // ====================== LIVE PREVIEW ======================
+  function fitCanvas(){
+    const dpr = window.devicePixelRatio || 1;
+    const size = canvas.clientWidth;
+    canvas.width = Math.round(size*dpr);
+    canvas.height = Math.round(size*dpr);
+    canvas.__scale = (size*dpr)/VB;
+  }
+  window.addEventListener('resize', fitCanvas);
+
+  function liveFrame(ts){
+    if(lastTs == null) lastTs = ts;
+    const dt = (ts - lastTs)/1000;
+    lastTs = ts;
+    const angularSpeed = (Math.PI*2/BASE_PERIOD_SEC) * speedMult;
+    rotation += dt*angularSpeed;
+
+    ctx.save();
+    ctx.scale(canvas.__scale, canvas.__scale);
+    drawScene(rotation, angleDeg*Math.PI/180);
+    ctx.restore();
+
+    rafId = requestAnimationFrame(liveFrame);
+  }
+
+  function startLive(){
+    fitCanvas();
+    if(rafId) cancelAnimationFrame(rafId);
+    lastTs = null;
+    rafId = requestAnimationFrame(liveFrame);
+  }
+
+  // ====================== CONTROLS ======================
+  const el = id => document.getElementById(id);
+  function syncVal(id, text){ el(id).textContent = text; }
+
+  function setShapeMode(mode){
+    shapeMode = mode;
+    el('btn-shape-dna').classList.toggle('active', mode === 'dna');
+    el('btn-shape-cloud').classList.toggle('active', mode === 'cloud');
+    el('dna-fields').hidden = mode !== 'dna';
+    el('cloud-fields').hidden = mode !== 'cloud';
+    el('dot-color-field').hidden = mode !== 'dna';
+    el('cloud-color-note').hidden = mode !== 'cloud';
+    el('cloud-motion-fields').hidden = mode !== 'cloud';
+    regenerateLayout();
+  }
+  el('btn-shape-dna').addEventListener('click', () => setShapeMode('dna'));
+  el('btn-shape-cloud').addEventListener('click', () => setShapeMode('cloud'));
+
+  el('rng-zones').addEventListener('input', e => {
+    cloudZones = parseInt(e.target.value);
+    syncVal('val-zones', cloudZones);
+    regenerateLayout();
+  });
+  el('rng-spread').addEventListener('input', e => {
+    cloudSpread = parseFloat(e.target.value);
+    syncVal('val-spread', cloudSpread.toFixed(2) + '×');
+    regenerateLayout();
+  });
+  el('btn-shuffle').addEventListener('click', () => regenerateLayout());
+  el('chk-rotate').addEventListener('change', e => { cloudRotate = e.target.checked; });
+  el('chk-morph').addEventListener('change', e => { cloudMorph = e.target.checked; });
+
+  el('rng-count').addEventListener('input', e => {
+    count = parseInt(e.target.value);
+    syncVal('val-count', count);
+    regenerateLayout();
+  });
+  el('rng-scatter').addEventListener('input', e => {
+    scatterPct = parseFloat(e.target.value);
+    syncVal('val-scatter', Math.round(scatterPct) + '%');
+    regenerateLayout();
+  });
+  el('rng-length').addEventListener('input', e => {
+    lengthMult = parseFloat(e.target.value);
+    syncVal('val-length', lengthMult.toFixed(2) + '×');
+    regenerateLayout();
+  });
+  el('rng-pitch').addEventListener('input', e => {
+    pitch = parseFloat(e.target.value);
+    syncVal('val-pitch', pitch.toFixed(1) + ' turns');
+    regenerateLayout();
+  });
+  el('rng-size').addEventListener('input', e => {
+    sizePct = parseFloat(e.target.value);
+    syncVal('val-size', Math.round(sizePct) + '%');
+  });
+  el('rng-sizevar').addEventListener('input', e => {
+    sizeVarPct = parseFloat(e.target.value);
+    syncVal('val-sizevar', Math.round(sizeVarPct) + '%');
+  });
+  el('rng-twinkle').addEventListener('input', e => {
+    twinklePct = parseFloat(e.target.value);
+    syncVal('val-twinkle', Math.round(twinklePct) + '%');
+  });
+  el('clr-dot').addEventListener('input', e => {
+    dotColor = e.target.value;
+    syncVal('val-dot-color', dotColor.toUpperCase());
+  });
+  el('clr-bg').addEventListener('input', e => {
+    bgColor = e.target.value;
+    syncVal('val-bg-color', bgColor.toUpperCase());
+  });
+  el('rng-speed').addEventListener('input', e => {
+    speedMult = parseFloat(e.target.value);
+    syncVal('val-speed', speedMult.toFixed(2) + '×');
+  });
+  el('rng-angle').addEventListener('input', e => {
+    angleDeg = parseFloat(e.target.value);
+    syncVal('val-angle', Math.round(angleDeg) + '°');
+  });
+
+  // ====================== MP4 EXPORT ======================
+  // Same proven approach as Flow Weave's video export: canvas.captureStream()
+  // + MediaRecorder, real-time-paced so the recorder's own clock and the
+  // drawn animation stay in lockstep, using Chrome/Edge's built-in MP4 muxer.
+  let exportInProgress = false;
+
+  function setControlsDisabled(disabled){
+    ['btn-shape-dna','btn-shape-cloud','rng-count','rng-zones','rng-spread','btn-shuffle','chk-rotate','chk-morph','rng-scatter','rng-length','rng-pitch','rng-size','rng-sizevar','rng-twinkle','clr-dot','clr-bg','rng-speed','rng-angle','num-loops'].forEach(id => el(id).disabled = disabled);
+  }
+
+  el('btn-export').addEventListener('click', async () => {
+    if(exportInProgress) return;
+    const status = el('status');
+    const btn = el('btn-export');
+
+    if(typeof MediaRecorder === 'undefined' || !HTMLCanvasElement.prototype.captureStream){
+      status.textContent = 'Video export needs a browser with MediaRecorder + canvas.captureStream support.';
+      return;
+    }
+    const mimeCandidates = ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4'];
+    const mimeType = mimeCandidates.find(m => MediaRecorder.isTypeSupported(m));
+    if(!mimeType){
+      status.textContent = 'MP4 recording needs Chrome or Edge.';
+      return;
+    }
+
+    exportInProgress = true;
+    setControlsDisabled(true);
+    btn.disabled = true;
+    btn.textContent = 'Recording…';
+
+    const exportCanvas = document.createElement('canvas');
+    exportCanvas.width = VIDEO_DIM; exportCanvas.height = VIDEO_DIM;
+    exportCanvas.style.cssText = 'position:fixed;left:-99999px;top:0;';
+    document.body.appendChild(exportCanvas);
+    const exportCtx = exportCanvas.getContext('2d');
+    const scale = VIDEO_DIM / VB;
+
+    try{
+      const loopsN = Math.max(1, Math.min(6, parseInt(el('num-loops').value) || 1));
+      const angularSpeed = (Math.PI*2/BASE_PERIOD_SEC) * speedMult;
+      const cycleSec = (Math.PI*2)/angularSpeed;
+      const totalSeconds = cycleSec*loopsN;
+      const angleRad = angleDeg*Math.PI/180;
+      const startRotation = rotation; // continue smoothly from whatever the live preview is showing
+
+      const stream = exportCanvas.captureStream(VIDEO_FPS);
+      const [videoTrack] = stream.getVideoTracks();
+      const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: VIDEO_BITRATE });
+      const chunks = [];
+      recorder.ondataavailable = e => { if(e.data && e.data.size) chunks.push(e.data); };
+      const stopped = new Promise(resolve => { recorder.onstop = resolve; });
+
+      recorder.start();
+      const t0 = performance.now();
+      const frameInterval = 1000/VIDEO_FPS;
+      let nextDraw = t0;
+      while(true){
+        const now = performance.now();
+        const elapsed = now - t0;
+        if(elapsed >= totalSeconds*1000) break;
+        if(now < nextDraw){ await new Promise(r => setTimeout(r, Math.min(nextDraw-now, 50))); continue; }
+        const frameRotation = startRotation + (elapsed/1000)*angularSpeed;
+        exportCtx.save();
+        exportCtx.scale(scale, scale);
+        drawSceneOn(exportCtx, frameRotation, angleRad);
+        exportCtx.restore();
+        videoTrack.requestFrame();
+        nextDraw += frameInterval;
+        status.textContent = `Recording video: ${(elapsed/1000).toFixed(1)}s / ${totalSeconds.toFixed(1)}s…`;
+        await new Promise(r => setTimeout(r, 0));
+      }
+      recorder.stop();
+      await stopped;
+
+      const blob = new Blob(chunks, { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `dot-dna-${shapeMode}.mp4`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      status.textContent = `Done — ${loopsN} loop${loopsN>1?'s':''} exported.`;
+      setTimeout(() => { status.textContent = ''; }, 4000);
+    } catch(err){
+      status.textContent = 'Video export failed: ' + (err && err.message ? err.message : err);
+    } finally {
+      if(exportCanvas.parentNode) exportCanvas.parentNode.removeChild(exportCanvas);
+      exportInProgress = false;
+      setControlsDisabled(false);
+      btn.disabled = false;
+      btn.textContent = 'Export video (.mp4)';
+    }
+  });
+
+  // drawScene always renders through the module-level `ctx` — this thin
+  // wrapper lets export redirect the exact same draw logic onto the
+  // off-screen export canvas without duplicating it.
+  function drawSceneOn(targetCtx, rot, angleRad){
+    const prev = ctx;
+    ctx = targetCtx;
+    drawScene(rot, angleRad);
+    ctx = prev;
+  }
+
+  // ====================== INIT ======================
+  regenerateLayout();
+  startLive();
+})();
+</script>
+</body>
+</html>
