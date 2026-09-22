@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Phaseshift — Loopable Animations</title>
+<link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">PHASESHIFT<span>·</span>ATOMS</div>
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-anim="lattice">01 / Lattice Formation</button>
+      <button class="tab" data-anim="cooling">02 / Cooling &amp; Grains</button>
+      <button class="tab" data-anim="cloud">03 / Solution Selection</button>
+      <button class="tab" data-anim="assembly">04 / Assembly Line</button>
+      <button class="tab" data-anim="material">05 / Material Card</button>
+    </nav>
+    <label class="bg-picker" title="Canvas background color">
+      BG
+      <input type="color" id="bg-color-input" value="#000000" />
+    </label>
+  </header>
+
+  <main class="layout">
+    <div class="stage" id="stage">
+      <canvas id="canvas"></canvas>
+      <div class="material-overlay" id="material-overlay"></div>
+    </div>
+    <aside class="panel">
+      <div class="panel-header">
+        <span id="panel-title">Variables</span>
+        <button id="reset-btn" title="Re-randomize this animation">↺ Reset</button>
+      </div>
+      <div class="panel-body" id="controls"></div>
+    </aside>
+  </main>
+
+  <script src="js/utils.js"></script>
+  <script src="js/lattice.js"></script>
+  <script src="js/cooling.js"></script>
+  <script src="js/cloud.js"></script>
+  <script src="js/assembly.js"></script>
+  <script src="js/material.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

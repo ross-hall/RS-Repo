@@ -1,0 +1,414 @@
+:root {
+  color-scheme: dark;
+  --bg: #000;
+  --fg: #ffffff;
+  --dim: #8a8a8a;
+  --line: #2a2a2a;
+  --mono: 'JetBrains Mono', 'IBM Plex Mono', 'SF Mono', Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: var(--mono);
+}
+
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--line);
+  flex-wrap: wrap;
+}
+
+.brand {
+  font-size: 12px;
+  letter-spacing: 0.25em;
+  color: var(--fg);
+  white-space: nowrap;
+}
+.brand span { color: var(--dim); margin: 0 6px; }
+
+.bg-picker {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  color: var(--dim);
+  text-transform: uppercase;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.bg-picker input[type="color"] {
+  width: 28px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: transparent;
+  cursor: pointer;
+}
+
+.tabs {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.tab {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.05em;
+  padding: 8px 14px;
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.tab:hover { color: var(--fg); border-color: #555; }
+.tab.active { color: #000; background: var(--fg); border-color: var(--fg); }
+
+.layout {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  height: calc(100vh - 53px);
+}
+
+.stage {
+  position: relative;
+  min-width: 0;
+  background: var(--bg);
+  border-right: 1px solid var(--line);
+}
+.stage canvas { display: block; width: 100%; height: 100%; }
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.panel-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--line);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+#reset-btn {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+#reset-btn:hover { border-color: var(--fg); }
+
+.panel-body {
+  padding: 12px 16px 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.control {
+  margin-bottom: 16px;
+}
+
+.control-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  font-size: 11px;
+  color: var(--dim);
+  margin-bottom: 6px;
+  letter-spacing: 0.03em;
+}
+
+.control-row .value { color: var(--fg); font-variant-numeric: tabular-nums; }
+
+input[type="range"] {
+  -webkit-appearance: none;
+  width: 100%;
+  height: 2px;
+  background: var(--line);
+  outline: none;
+}
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: var(--fg);
+  cursor: pointer;
+}
+input[type="range"]::-moz-range-thumb {
+  width: 11px;
+  height: 11px;
+  border: none;
+  border-radius: 50%;
+  background: var(--fg);
+  cursor: pointer;
+}
+
+.control-group-heading {
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin: 4px 0 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+.image-control-actions {
+  display: flex;
+  gap: 8px;
+}
+
+.file-btn {
+  flex: 1;
+  text-align: center;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.file-btn:hover { border-color: var(--fg); }
+
+.reset-image-btn {
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--dim);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.reset-image-btn:hover { border-color: var(--fg); color: var(--fg); }
+
+.checkbox-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--dim);
+}
+input[type="checkbox"] {
+  accent-color: var(--fg);
+  width: 14px;
+  height: 14px;
+}
+
+.control input[type="text"],
+.control textarea {
+  width: 100%;
+  background: transparent;
+  border: 1px solid var(--line);
+  color: var(--fg);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 6px 8px;
+  resize: vertical;
+}
+.control input[type="text"]:focus,
+.control textarea:focus {
+  outline: none;
+  border-color: var(--fg);
+}
+
+.color-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 11px;
+  color: var(--dim);
+}
+.color-row input[type="color"] {
+  width: 32px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--line);
+  background: transparent;
+  cursor: pointer;
+}
+
+/* --- Material Card animation (DOM overlay, not canvas-drawn) --- */
+
+.material-overlay {
+  position: absolute;
+  inset: 0;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  overflow: auto;
+  z-index: 2;
+}
+.material-overlay.active { display: flex; }
+
+.material-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 22px;
+  width: 100%;
+  max-width: 420px;
+}
+
+.material-tabs {
+  display: flex;
+  border: 1px solid var(--fg);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.material-tabs button {
+  border: none;
+  background: none;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  padding: 8px 15px;
+  color: var(--dim);
+  cursor: pointer;
+  border-right: 1px solid var(--line);
+  transition: background 0.25s ease, color 0.25s ease;
+}
+.material-tabs button:last-child { border-right: none; }
+.material-tabs button.active { background: var(--fg); color: #000; }
+
+.material-card {
+  width: 100%;
+  border: 1px solid var(--fg);
+  padding: 26px 24px 20px;
+}
+
+.material-card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 26px;
+  gap: 12px;
+}
+.material-card-head h2 {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0;
+}
+.material-card-state {
+  font-size: 11px;
+  color: var(--dim);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  white-space: nowrap;
+}
+.material-card-state .dots {
+  display: inline-block;
+  width: 1.4em;
+  text-align: left;
+}
+
+.material-row { margin-bottom: 22px; }
+.material-row:last-child { margin-bottom: 0; }
+.material-row-label {
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  margin-bottom: 9px;
+  color: var(--fg);
+}
+
+.material-row-main {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.material-bar-track {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  background: var(--line);
+  border-radius: 3px;
+}
+.material-band {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  background: rgba(255, 255, 255, 0.1);
+  border-left: 1px solid rgba(255, 255, 255, 0.4);
+  border-right: 1px solid rgba(255, 255, 255, 0.4);
+}
+.material-bar-fill {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  border-radius: 3px;
+  background: var(--fg);
+  width: 0%;
+  transition: width 0.5s ease, background 0.3s ease;
+}
+.material-bar-fill.hidden { display: none; }
+
+/* Diagonal hash scrolling across the bar while its property is being
+   tested — stops once the tick appears. */
+.material-bar-fill.testing-active {
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(0, 0, 0, 0.4) 0, rgba(0, 0, 0, 0.4) 3px,
+    transparent 3px, transparent 8px
+  );
+  background-size: 200% 200%;
+  animation: material-hash-scroll 0.7s linear infinite;
+}
+@keyframes material-hash-scroll {
+  from { background-position: 0 0; }
+  to { background-position: 16px 0; }
+}
+
+.material-tick {
+  flex: none;
+  width: 16px;
+  text-align: center;
+  font-size: 12px;
+  line-height: 1;
+  opacity: 0;
+  transform: scale(0.6);
+  transition: opacity 0.25s ease, transform 0.25s ease;
+}
+.material-tick.visible {
+  opacity: 1;
+  transform: scale(1);
+}
+
+.material-caption {
+  font-size: 11px;
+  color: var(--dim);
+  text-align: center;
+  max-width: 380px;
+  line-height: 1.5;
+}
+
+@media (max-width: 760px) {
+  .layout { grid-template-columns: 1fr; grid-template-rows: 52vh 1fr; height: auto; min-height: calc(100vh - 53px); }
+  .stage { border-right: none; border-bottom: 1px solid var(--line); }
+}
