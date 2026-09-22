@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Reciprocal Space Tools</title>
+  <style>
+    :root {
+      --bg: #f6f6f4;
+      --surface: #ffffff;
+      --text: #1b1b1a;
+      --muted: #6b6b66;
+      --border: #e3e3de;
+      --accent: #2f5bd3;
+      --accent-soft: #e8eefc;
+      --live: #1f8a4c;
+      --wip: #b7791f;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root:not([data-theme="light"]) {
+        --bg: #121212;
+        --surface: #1c1c1b;
+        --text: #ececea;
+        --muted: #9a9a94;
+        --border: #2e2e2c;
+        --accent: #7fa1ff;
+        --accent-soft: #1f2940;
+        --live: #4cc47f;
+        --wip: #e0a84a;
+      }
+    }
+    :root[data-theme="dark"] {
+      --bg: #121212;
+      --surface: #1c1c1b;
+      --text: #ececea;
+      --muted: #9a9a94;
+      --border: #2e2e2c;
+      --accent: #7fa1ff;
+      --accent-soft: #1f2940;
+      --live: #4cc47f;
+      --wip: #e0a84a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, sans-serif;
+    }
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 48px 16px 64px; }
+    header { display: flex; flex-wrap: wrap; gap: 16px; align-items: end; justify-content: space-between; margin-bottom: 32px; }
+    h1 { margin: 0; font-size: 26px; letter-spacing: -0.02em; }
+    .sub { margin: 4px 0 0; color: var(--muted); }
+    .stats { display: flex; gap: 20px; color: var(--muted); font-size: 13px; }
+    .stats b { color: var(--text); font-size: 18px; display: block; }
+    input[type="search"] {
+      width: 100%; padding: 10px 14px; margin-bottom: 28px;
+      border: 1px solid var(--border); border-radius: 10px;
+      background: var(--surface); color: var(--text); font: inherit;
+    }
+    input[type="search"]:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px; }
+    .client {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 14px; padding: 20px; display: flex; flex-direction: column;
+    }
+    .client-head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+    .client h2 { margin: 0; font-size: 18px; }
+    .client h2 a { color: inherit; text-decoration: none; }
+    .client h2 a:hover { color: var(--accent); }
+    .count { font-size: 12px; color: var(--muted); white-space: nowrap; }
+    .client p.desc { margin: 4px 0 0; color: var(--muted); font-size: 14px; }
+    ul.tools { list-style: none; margin: 16px 0 0; padding: 0; display: grid; gap: 6px; }
+    ul.tools a {
+      display: block; padding: 10px 12px; border-radius: 8px;
+      text-decoration: none; color: var(--text); border: 1px solid var(--border);
+    }
+    ul.tools a:hover { border-color: var(--accent); background: var(--accent-soft); }
+    .tool-name { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+    .tool-desc { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+    .badge { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; border: 1px solid currentColor; }
+    .badge.live { color: var(--live); }
+    .badge.wip { color: var(--wip); }
+    .empty { margin-top: 16px; color: var(--muted); font-size: 13px; font-style: italic; }
+    .none { color: var(--muted); text-align: center; padding: 40px 0; }
+    footer { margin-top: 48px; color: var(--muted); font-size: 12px; }
+    code { font-size: 12px; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>Reciprocal Space</h1>
+        <p class="sub">Client tools directory</p>
+      </div>
+      <div class="stats">
+        <div><b id="stat-clients">0</b>clients</div>
+        <div><b id="stat-tools">0</b>tools</div>
+      </div>
+    </header>
+
+    <input type="search" id="q" placeholder="Search clients and tools…" aria-label="Search clients and tools">
+    <div class="grid" id="grid"></div>
+    <p class="none" id="none" hidden>No matches.</p>
+
+    <footer>Edit <code>projects.js</code> to add clients and tools.</footer>
+  </div>
+
+  <script src="projects.js"></script>
+  <script>
+    const projects = window.RS_PROJECTS || [];
+    const grid = document.getElementById("grid");
+    const none = document.getElementById("none");
+
+    const el = (tag, props = {}, ...children) => {
+      const n = Object.assign(document.createElement(tag), props);
+      children.flat().forEach(c => c != null && n.append(c));
+      return n;
+    };
+
+    document.getElementById("stat-clients").textContent = projects.length;
+    document.getElementById("stat-tools").textContent =
+      projects.reduce((sum, c) => sum + (c.tools || []).length, 0);
+
+    function render(query) {
+      const q = query.trim().toLowerCase();
+      const hit = s => (s || "").toLowerCase().includes(q);
+      grid.replaceChildren();
+
+      const sorted = [...projects].sort((a, b) => a.name.localeCompare(b.name));
+      for (const client of sorted) {
+        const tools = client.tools || [];
+        const clientMatch = !q || hit(client.name) || hit(client.description);
+        const shown = clientMatch ? tools : tools.filter(t => hit(t.name) || hit(t.description));
+        if (!clientMatch && !shown.length) continue;
+
+        const card = el("section", { className: "client" },
+          el("div", { className: "client-head" },
+            el("h2", {}, el("a", { href: client.path, textContent: client.name })),
+            el("span", { className: "count", textContent: `${tools.length} tool${tools.length === 1 ? "" : "s"}` })
+          ),
+          client.description ? el("p", { className: "desc", textContent: client.description }) : null,
+          shown.length
+            ? el("ul", { className: "tools" }, shown.map(t =>
+                el("li", {}, el("a", { href: t.path },
+                  el("span", { className: "tool-name" }, t.name,
+                    t.status ? el("span", { className: `badge ${t.status}`, textContent: t.status }) : null),
+                  t.description ? el("span", { className: "tool-desc", textContent: t.description }) : null
+                ))))
+            : el("p", { className: "empty", textContent: "No tools yet." })
+        );
+        grid.append(card);
+      }
+      none.hidden = grid.children.length > 0;
+    }
+
+    document.getElementById("q").addEventListener("input", e => render(e.target.value));
+    render("");
+  </script>
+</body>
+</html>
