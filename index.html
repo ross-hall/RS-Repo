@@ -104,14 +104,19 @@
     <div class="grid" id="grid"></div>
     <p class="none" id="none" hidden>No matches.</p>
 
-    <footer>Edit <code>projects.js</code> to add clients and tools.</footer>
+    <footer>Clients and tools are read from the repo's folders automatically. Optional descriptions live in <code>projects.js</code>.</footer>
   </div>
 
   <script src="projects.js"></script>
   <script>
-    const projects = window.RS_PROJECTS || [];
+    // Top-level folders are clients; folders inside them are tools.
+    // On GitHub Pages (owner.github.io/repo/) the repo is detected from the URL;
+    // anywhere else (local preview) it falls back to FALLBACK_REPO.
+    const FALLBACK_REPO = "ross-hall/RS-Repo-2";
+    const meta = window.RS_META || {};
     const grid = document.getElementById("grid");
     const none = document.getElementById("none");
+    let projects = [];
 
     const el = (tag, props = {}, ...children) => {
       const n = Object.assign(document.createElement(tag), props);
@@ -119,9 +124,40 @@
       return n;
     };
 
-    document.getElementById("stat-clients").textContent = projects.length;
-    document.getElementById("stat-tools").textContent =
-      projects.reduce((sum, c) => sum + (c.tools || []).length, 0);
+    function detectRepo() {
+      const m = location.hostname.match(/^([^.]+)\.github\.io$/);
+      const first = location.pathname.split("/").filter(Boolean)[0];
+      if (m && first) return `${m[1]}/${first}`;
+      return FALLBACK_REPO;
+    }
+
+    const skip = name => name.startsWith(".") || name.startsWith("_") || name === "node_modules";
+    const encodePath = path => path.split("/").map(encodeURIComponent).join("/");
+
+    async function loadProjects() {
+      const repo = detectRepo();
+      const res = await fetch(`https://api.github.com/repos/${repo}/git/trees/HEAD?recursive=1`);
+      if (!res.ok) throw new Error(`GitHub API returned ${res.status}`);
+      const { tree } = await res.json();
+
+      const dirs = new Set(tree.filter(e => e.type === "tree").map(e => e.path));
+      const files = new Set(tree.filter(e => e.type === "blob").map(e => e.path));
+      // Folders with an index.html open as pages; others open on GitHub.
+      const link = path => files.has(`${path}/index.html`)
+        ? `${encodePath(path)}/`
+        : `https://github.com/${repo}/tree/HEAD/${encodePath(path)}`;
+
+      const clients = [...dirs].filter(p => !p.includes("/") && !skip(p));
+      return clients.map(c => ({
+        name: c,
+        path: link(c),
+        ...meta[c],
+        tools: [...dirs]
+          .filter(p => p.startsWith(c + "/") && p.split("/").length === 2)
+          .filter(p => !skip(p.split("/")[1]) && !meta[p]?.hidden)
+          .map(p => ({ name: p.split("/")[1], path: link(p), ...meta[p] })),
+      })).filter(c => !c.hidden);
+    }
 
     function render(query) {
       const q = query.trim().toLowerCase();
@@ -130,7 +166,7 @@
 
       const sorted = [...projects].sort((a, b) => a.name.localeCompare(b.name));
       for (const client of sorted) {
-        const tools = client.tools || [];
+        const tools = [...client.tools].sort((a, b) => a.name.localeCompare(b.name));
         const clientMatch = !q || hit(client.name) || hit(client.description);
         const shown = clientMatch ? tools : tools.filter(t => hit(t.name) || hit(t.description));
         if (!clientMatch && !shown.length) continue;
@@ -156,7 +192,19 @@
     }
 
     document.getElementById("q").addEventListener("input", e => render(e.target.value));
-    render("");
+
+    loadProjects()
+      .then(p => {
+        projects = p;
+        document.getElementById("stat-clients").textContent = projects.length;
+        document.getElementById("stat-tools").textContent =
+          projects.reduce((sum, c) => sum + c.tools.length, 0);
+        render(document.getElementById("q").value);
+      })
+      .catch(err => {
+        none.textContent = `Couldn't load folders from GitHub (${err.message}).`;
+        none.hidden = false;
+      });
   </script>
 </body>
 </html>
