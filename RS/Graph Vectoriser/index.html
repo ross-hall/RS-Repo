@@ -1,0 +1,1952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Graph Vectoriser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0c0c0e;
+    --surface: #141416;
+    --surface2: #1c1c1f;
+    --border: #2a2a2e;
+    --border2: #3a3a3f;
+    --accent: #e8ff47;
+    --accent2: #47ffe8;
+    --text: #f0f0f0;
+    --text2: #888;
+    --text3: #555;
+    --error: #ff4747;
+    --success: #47ff8a;
+    --radius: 8px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+  }
+
+  header {
+    padding: 20px 32px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    background: var(--surface);
+  }
+
+  .logo {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .logo-mark {
+    width: 32px;
+    height: 32px;
+    background: var(--accent);
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .logo-mark svg { width: 18px; height: 18px; }
+
+  h1 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--text);
+  }
+
+  .badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    color: var(--text2);
+    padding: 3px 8px;
+    border-radius: 100px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  .main {
+    flex: 1;
+    display: grid;
+    grid-template-columns: 1fr 320px;
+    gap: 0;
+    height: calc(100vh - 65px);
+    overflow: hidden;
+  }
+
+  /* Drop Zone */
+  .drop-area {
+    grid-column: 1;
+    display: flex;
+    flex-direction: column;
+    border-right: 1px solid var(--border);
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  .drop-zone {
+    /* Fixed height when empty; shrinks to fit-content when image loaded */
+    height: 220px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    position: relative;
+    background: var(--bg);
+    gap: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .drop-zone.has-image {
+    cursor: default;
+    padding: 0;
+    height: 220px;
+  }
+
+  .drop-zone.dragging {
+    background: rgba(232, 255, 71, 0.04);
+  }
+
+  .drop-zone.dragging::after {
+    content: '';
+    position: absolute;
+    inset: 12px;
+    border: 2px dashed var(--accent);
+    border-radius: var(--radius);
+    pointer-events: none;
+    animation: dash 0.5s linear infinite;
+  }
+
+  @keyframes dash {
+    to { stroke-dashoffset: -20px; }
+  }
+
+  .drop-icon {
+    width: 64px;
+    height: 64px;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+  }
+
+  .drop-zone:not(.has-image):hover .drop-icon {
+    border-color: var(--accent);
+    background: rgba(232, 255, 71, 0.06);
+  }
+
+  .drop-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+  }
+
+  .drop-sub {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text3);
+    letter-spacing: 0.04em;
+  }
+
+  .image-container {
+    position: relative;
+    width: 100%;
+    height: 220px;
+    overflow: hidden;
+    background: var(--bg);
+  }
+
+  .image-container img {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    display: block;
+  }
+
+  .image-overlay {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: flex;
+    gap: 8px;
+  }
+
+  /* Tabs */
+  .view-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    padding: 0 24px;
+    flex-shrink: 0;
+  }
+
+  .tab-btn {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 14px 16px;
+    background: none;
+    border: none;
+    color: var(--text3);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.15s;
+  }
+
+  .tab-btn.active {
+    color: var(--accent);
+    border-bottom-color: var(--accent);
+  }
+
+  .tab-btn:hover:not(.active) { color: var(--text2); }
+
+  /* Output panel */
+  .output-panel {
+    background: var(--bg);
+    display: none;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+  }
+
+  .output-panel.active { display: flex; }
+
+  .svg-view {
+    flex: 1;
+    overflow: auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    background-image: radial-gradient(circle, #ddd 1px, transparent 1px);
+    background-size: 20px 20px;
+    min-height: 0;
+  }
+
+  .svg-view svg { max-width: 100%; max-height: 100%; }
+
+  .code-view {
+    flex: 1;
+    overflow: auto;
+    padding: 20px;
+    font-family: 'DM Mono', monospace;
+    font-size: 11.5px;
+    line-height: 1.7;
+    color: #a8d8a8;
+    background: var(--bg);
+    white-space: pre;
+    min-height: 0;
+  }
+
+  /* Sidebar */
+  .sidebar {
+    display: flex;
+    flex-direction: column;
+    background: var(--surface);
+    overflow-y: auto;
+    grid-column: 2;
+    border-left: 1px solid var(--border);
+  }
+
+  .sidebar-section {
+    padding: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .sidebar-section:last-child { border-bottom: none; }
+
+  .section-label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text3);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .control-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 12px;
+    gap: 12px;
+  }
+
+  .control-row:last-child { margin-bottom: 0; }
+
+  .control-label {
+    font-size: 12px;
+    color: var(--text2);
+    flex-shrink: 0;
+  }
+
+  /* Inputs */
+  input[type="color"] {
+    width: 36px;
+    height: 28px;
+    border: 1px solid var(--border2);
+    border-radius: 4px;
+    background: none;
+    cursor: pointer;
+    padding: 2px;
+  }
+
+  input[type="range"] {
+    flex: 1;
+    accent-color: var(--accent);
+    cursor: pointer;
+  }
+
+  input[type="number"],
+  input[type="text"],
+  select {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--text);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    padding: 7px 10px;
+    width: 100%;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  input[type="number"]:focus,
+  input[type="text"]:focus,
+  select:focus { border-color: var(--border2); }
+
+  select option { background: var(--surface2); }
+
+  .range-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    min-width: 28px;
+    text-align: right;
+  }
+
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+    cursor: pointer;
+  }
+
+  .checkbox-row input[type="checkbox"] {
+    accent-color: var(--accent);
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+  }
+
+  .checkbox-row label {
+    font-size: 12px;
+    color: var(--text2);
+    cursor: pointer;
+  }
+
+  /* Colour swatches for series */
+  .swatch-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 8px;
+  }
+
+  .swatch {
+    width: 24px;
+    height: 24px;
+    border-radius: 4px;
+    cursor: pointer;
+    border: 2px solid transparent;
+    transition: all 0.15s;
+    position: relative;
+  }
+
+  .swatch.active { border-color: #fff; transform: scale(1.1); }
+
+  /* Buttons */
+  .btn {
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    padding: 10px 16px;
+    border-radius: var(--radius);
+    border: none;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 7px;
+    width: 100%;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #0c0c0e;
+  }
+
+  .btn-primary:hover { background: #d4eb3a; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { background: var(--border); color: var(--text3); cursor: not-allowed; transform: none; }
+
+  .btn-secondary {
+    background: var(--surface2);
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+
+  .btn-secondary:hover { border-color: var(--border2); }
+
+  .btn-sm {
+    font-size: 11px;
+    padding: 6px 12px;
+    width: auto;
+  }
+
+  /* Status */
+  .status-bar {
+    padding: 10px 20px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    color: var(--text3);
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 40px;
+    flex-shrink: 0;
+  }
+
+  .status-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text3);
+    flex-shrink: 0;
+  }
+
+  .status-dot.active {
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent);
+    animation: pulse 1.2s ease-in-out infinite;
+  }
+
+  .status-dot.success { background: var(--success); box-shadow: 0 0 6px var(--success); animation: none; }
+  .status-dot.error { background: var(--error); box-shadow: 0 0 6px var(--error); animation: none; }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+  }
+
+  /* Data table */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+  }
+
+  .data-table th {
+    text-align: left;
+    padding: 6px 8px;
+    color: var(--text3);
+    border-bottom: 1px solid var(--border);
+    font-weight: 400;
+    letter-spacing: 0.05em;
+  }
+
+  .data-table td {
+    padding: 5px 8px;
+    color: var(--text2);
+    border-bottom: 1px solid var(--border);
+  }
+
+  .data-table tr:last-child td { border-bottom: none; }
+  .data-table tr:hover td { background: var(--surface2); }
+
+  /* Output area tabs container */
+  .output-area {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    overflow: hidden;
+    min-height: 0;
+  }
+
+  .empty-output {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    gap: 10px;
+    color: var(--text3);
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    min-height: 0;
+  }
+
+  input[type="file"] { display: none; }
+
+  /* Editable data table */
+  .data-table td input {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid transparent;
+    color: var(--text2);
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    width: 68px;
+    padding: 2px 2px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .data-table td input:focus {
+    border-bottom-color: var(--accent);
+    color: var(--text);
+  }
+  .data-table td input.changed {
+    color: var(--accent);
+  }
+  .data-table td.row-actions {
+    width: 24px;
+    padding: 2px 4px;
+  }
+  .btn-row-del {
+    background: none;
+    border: none;
+    color: var(--text3);
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1;
+    padding: 0 2px;
+    transition: color 0.15s;
+  }
+  .btn-row-del:hover { color: var(--error); }
+  .btn-add-row {
+    background: var(--surface2);
+    border: 1px dashed var(--border2);
+    border-radius: var(--radius);
+    color: var(--text3);
+    cursor: pointer;
+    font-family: 'DM Mono', monospace;
+    font-size: 11px;
+    padding: 5px 10px;
+    margin-top: 6px;
+    transition: all 0.15s;
+    width: 100%;
+    text-align: left;
+  }
+  .btn-add-row:hover { color: var(--text); border-color: var(--accent); }
+  .series-name-input {
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid transparent;
+    color: #ccc;
+    font-family: 'Syne', sans-serif;
+    font-size: 12px;
+    font-weight: 600;
+    outline: none;
+    transition: border-color 0.15s;
+    width: 160px;
+  }
+  .series-name-input:focus { border-bottom-color: var(--accent); color: var(--text); }
+
+  .spinner {
+    width: 20px;
+    height: 20px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    display: inline-block;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .api-key-wrap {
+    padding: 20px;
+    background: rgba(232, 255, 71, 0.04);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .api-key-wrap label {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text3);
+  }
+
+  .api-key-wrap .note {
+    font-family: 'DM Mono', monospace;
+    font-size: 10px;
+    color: var(--text3);
+    line-height: 1.5;
+  }
+
+  .divider { height: 1px; background: var(--border); }
+
+  /* Horizontal scroll for data panel */
+  .data-scroll { overflow-x: auto; }
+
+  .series-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--border);
+    font-size: 12px;
+    color: var(--text2);
+  }
+
+  .series-item:last-child { border-bottom: none; }
+
+  .series-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-mark">
+      <svg viewBox="0 0 18 18" fill="none">
+        <path d="M2 14 L6 8 L10 11 L14 5" stroke="#0c0c0e" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="6" cy="8" r="1.5" fill="#0c0c0e"/>
+        <circle cx="10" cy="11" r="1.5" fill="#0c0c0e"/>
+        <circle cx="14" cy="5" r="1.5" fill="#0c0c0e"/>
+      </svg>
+    </div>
+    <h1>Graph Vectoriser</h1>
+  </div>
+  <span class="badge">AI-Powered</span>
+  <span class="badge" style="margin-left:auto;color:var(--accent);border-color:var(--accent);background:rgba(232,255,71,0.06)">v2.4</span>
+</header>
+
+<div class="main">
+
+  <!-- Left: drop + output -->
+  <div class="drop-area">
+    <!-- Drop zone / image preview -->
+    <div class="drop-zone" id="dropZone">
+      <div class="drop-icon">
+        <svg width="28" height="28" fill="none" viewBox="0 0 28 28">
+          <rect x="3" y="3" width="22" height="22" rx="4" stroke="#555" stroke-width="1.5"/>
+          <path d="M3 19 L9 13 L14 17 L19 11 L25 15" stroke="#555" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          <circle cx="9" cy="13" r="1.5" fill="#555"/>
+          <circle cx="14" cy="17" r="1.5" fill="#555"/>
+          <circle cx="19" cy="11" r="1.5" fill="#555"/>
+        </svg>
+      </div>
+      <div class="drop-title">Drop graph image here</div>
+      <div class="drop-sub">PNG · JPG · WEBP · SVG accepted</div>
+      <input type="file" id="fileInput" accept="image/*">
+    </div>
+
+    <!-- Status -->
+    <div class="status-bar" id="statusBar">
+      <div class="status-dot" id="statusDot"></div>
+      <span id="statusText">Drop an image to begin</span>
+    </div>
+
+    <!-- Output tabs + panels -->
+    <div class="output-area" id="outputArea" style="display:none">
+      <div class="view-tabs">
+        <button class="tab-btn active" data-tab="preview">SVG Preview</button>
+        <button class="tab-btn" data-tab="code">SVG Code</button>
+        <button class="tab-btn" data-tab="data">Data Points</button>
+      </div>
+
+      <div class="output-panel active" id="tab-preview">
+        <div class="svg-view" id="svgView"></div>
+      </div>
+
+      <div class="output-panel" id="tab-code">
+        <div class="code-view" id="codeView"></div>
+      </div>
+
+      <div class="output-panel" id="tab-data">
+        <div style="padding:20px; overflow:auto; flex:1;">
+          <div id="dataTable"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="empty-output" id="emptyOutput">
+      <svg width="40" height="40" fill="none" viewBox="0 0 40 40">
+        <rect x="4" y="4" width="32" height="32" rx="6" stroke="#333" stroke-width="1.5"/>
+        <path d="M8 28 L14 20 L20 24 L26 16 L32 20" stroke="#333" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span>Vectorised graph will appear here</span>
+    </div>
+  </div>
+
+  <!-- Right: sidebar -->
+  <div class="sidebar">
+
+    <!-- API Key -->
+    <div class="api-key-wrap">
+      <label>Anthropic API Key</label>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <input type="password" id="apiKey" placeholder="sk-ant-..." autocomplete="off" spellcheck="false" style="flex:1">
+        <button id="toggleKeyVis" title="Show/hide key" style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);color:var(--text2);cursor:pointer;padding:6px 8px;font-size:13px;flex-shrink:0;line-height:1">👁</button>
+      </div>
+      <div class="checkbox-row" style="margin-bottom:0;margin-top:2px">
+        <input type="checkbox" id="rememberKey">
+        <label for="rememberKey" style="font-size:11px;color:var(--text3)">Remember on this device</label>
+        <button id="clearKeyBtn" style="margin-left:auto;background:none;border:none;color:var(--text3);cursor:pointer;font-size:10px;font-family:'DM Mono',monospace;padding:0;display:none;text-decoration:underline">forget</button>
+      </div>
+    </div>
+
+    <!-- Analyse button -->
+    <div class="sidebar-section">
+      <button class="btn btn-primary" id="analyseBtn" disabled>
+        <svg width="14" height="14" fill="none" viewBox="0 0 14 14">
+          <circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.5"/>
+          <path d="M5 7 L6.5 8.5 L9 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        Vectorise Graph
+      </button>
+    </div>
+
+    <!-- Graph type -->
+    <div class="sidebar-section">
+      <div class="section-label">Output Style</div>
+      <div class="control-row">
+        <label class="control-label">Graph type</label>
+        <select id="graphType" style="max-width:140px">
+          <option value="auto">Auto-detect</option>
+          <option value="line">Line chart</option>
+          <option value="scatter">Scatter plot</option>
+          <option value="bar">Bar chart (grouped)</option>
+          <option value="stacked-bar">Bar chart (stacked)</option>
+          <option value="box">Box &amp; whisker</option>
+          <option value="area">Area chart</option>
+        </select>
+      </div>
+      <div class="control-row" style="margin-top:4px">
+        <label class="control-label">Preset size</label>
+        <select id="sizePreset" style="max-width:140px">
+          <option value="custom">Custom</option>
+          <option value="16:9" selected>16:9 — Slide</option>
+          <option value="4:3">4:3 — Classic</option>
+          <option value="1:1">1:1 — Square</option>
+          <option value="3:2">3:2 — Photo</option>
+          <option value="2:1">2:1 — Wide</option>
+          <option value="golden">Golden ratio</option>
+        </select>
+      </div>
+      <div class="control-row">
+        <label class="control-label">Width (px)</label>
+        <input type="number" id="svgWidth" value="700" min="200" max="2000" step="10" style="max-width:80px">
+      </div>
+      <div class="control-row">
+        <label class="control-label">Height (px)</label>
+        <input type="number" id="svgHeight" value="394" min="150" max="2000" step="10" style="max-width:80px">
+      </div>
+    </div>
+
+    <!-- Axes -->
+    <div class="sidebar-section">
+      <div class="section-label">Axes &amp; Labels</div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="showAxes" checked>
+        <label for="showAxes">Show axes</label>
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="showGrid" checked>
+        <label for="showGrid">Show grid lines</label>
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="showLabels" checked>
+        <label for="showLabels">Axis labels &amp; titles</label>
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="showLegend" checked>
+        <label for="showLegend">Legend</label>
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="showErrorBars" checked>
+        <label for="showErrorBars">Error bars</label>
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="showDataPoints" checked>
+        <label for="showDataPoints">Data points (markers)</label>
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="showBestFit" checked>
+        <label for="showBestFit">Line of best fit</label>
+      </div>
+    </div>
+
+    <!-- Line style -->
+    <div class="sidebar-section">
+      <div class="section-label">Line Style</div>
+      <div class="control-row">
+        <span class="control-label">Thickness</span>
+        <input type="range" id="lineThickness" min="0.5" max="6" step="0.5" value="2">
+        <span class="range-val" id="lineThicknessVal">2</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Style</span>
+        <select id="lineStyle" style="max-width:140px">
+          <option value="solid">Solid</option>
+          <option value="dashed">Dashed</option>
+          <option value="dotted">Dotted</option>
+        </select>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Marker size</span>
+        <input type="range" id="markerSize" min="2" max="10" step="1" value="4">
+        <span class="range-val" id="markerSizeVal">4</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Marker shape</span>
+        <select id="markerShape" style="max-width:140px">
+          <option value="circle">Circle</option>
+          <option value="square">Square</option>
+          <option value="triangle">Triangle</option>
+          <option value="diamond">Diamond</option>
+          <option value="cross">Cross</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Colours -->
+    <div class="sidebar-section">
+      <div class="section-label">Colours</div>
+      <div class="control-row">
+        <span class="control-label">Background</span>
+        <input type="color" id="bgColor" value="#ffffff">
+      </div>
+      <div class="control-row">
+        <span class="control-label">Axes &amp; text</span>
+        <input type="color" id="axisColor" value="#333333">
+      </div>
+      <div class="control-row">
+        <span class="control-label">Grid</span>
+        <input type="color" id="gridColor" value="#e0e0e0">
+      </div>
+      <div style="margin-top:4px">
+        <div class="control-label" style="margin-bottom:8px">Series palette</div>
+        <div class="swatch-row" id="swatchRow">
+          <!-- built by JS -->
+        </div>
+        <div class="control-row" style="margin-top:12px">
+          <span class="control-label">Series colour</span>
+          <input type="color" id="seriesColor" value="#2563eb">
+        </div>
+      </div>
+    </div>
+
+    <!-- Font -->
+    <div class="sidebar-section">
+      <div class="section-label">Typography</div>
+      <div class="control-row">
+        <span class="control-label">Font size</span>
+        <input type="range" id="fontSize" min="8" max="18" step="1" value="12">
+        <span class="range-val" id="fontSizeVal">12</span>
+      </div>
+      <div class="control-row">
+        <span class="control-label">Font family</span>
+        <select id="fontFamily" style="max-width:140px">
+          <option value="sans-serif">Sans-serif</option>
+          <option value="serif">Serif</option>
+          <option value="monospace">Monospace</option>
+          <option value="'Inter', sans-serif">Inter</option>
+          <option value="'Georgia', serif">Georgia</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Export -->
+    <div class="sidebar-section">
+      <div class="section-label">Export</div>
+      <div style="display:flex; flex-direction:column; gap:8px;">
+        <button class="btn btn-secondary btn-sm" id="downloadSvgBtn" disabled>Download SVG</button>
+        <button class="btn btn-secondary btn-sm" id="downloadPngBtn" disabled>Download PNG (2×)</button>
+        <button class="btn btn-secondary btn-sm" id="copyCodeBtn" disabled>Copy SVG Code</button>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ── State ──────────────────────────────────────────────────────────────────
+let uploadedImage = null;
+let uploadedDataUrl = null;
+let parsedGraph = null;
+let generatedSvg = '';
+let activeSwatch = 0;
+
+const PALETTES = [
+  ['#2563eb','#dc2626','#16a34a','#d97706','#7c3aed','#0891b2'],
+  ['#0f172a','#374151','#6b7280','#9ca3af','#d1d5db','#f3f4f6'],
+  ['#be185d','#9333ea','#2563eb','#059669','#d97706','#dc2626'],
+];
+
+let seriesPalette = [...PALETTES[0]];
+
+// ── Elements ───────────────────────────────────────────────────────────────
+const dropZone = document.getElementById('dropZone');
+const fileInput = document.getElementById('fileInput');
+const analyseBtn = document.getElementById('analyseBtn');
+const statusDot = document.getElementById('statusDot');
+const statusText = document.getElementById('statusText');
+const outputArea = document.getElementById('outputArea');
+const emptyOutput = document.getElementById('emptyOutput');
+const svgView = document.getElementById('svgView');
+const codeView = document.getElementById('codeView');
+const dataTable = document.getElementById('dataTable');
+const downloadSvgBtn = document.getElementById('downloadSvgBtn');
+const downloadPngBtn = document.getElementById('downloadPngBtn');
+const copyCodeBtn = document.getElementById('copyCodeBtn');
+const apiKeyInput = document.getElementById('apiKey');
+const swatchRow = document.getElementById('swatchRow');
+
+// ── Range inputs live update ───────────────────────────────────────────────
+['lineThickness','markerSize','fontSize'].forEach(id => {
+  const el = document.getElementById(id);
+  const val = document.getElementById(id + 'Val');
+  el.addEventListener('input', () => { val.textContent = el.value; if(parsedGraph) regenerateSvg(); });
+});
+
+// ── Checkboxes & selects trigger regen ────────────────────────────────────
+['showAxes','showGrid','showLabels','showLegend','showErrorBars','showDataPoints','showBestFit',
+ 'graphType','lineStyle','markerShape','bgColor','axisColor','gridColor','fontFamily'].forEach(id => {
+  document.getElementById(id).addEventListener('change', () => { if(parsedGraph) regenerateSvg(); });
+});
+
+// ── Size preset + custom W/H ───────────────────────────────────────────────
+const PRESETS = {
+  '16:9':   [700, 394],
+  '4:3':    [700, 525],
+  '1:1':    [600, 600],
+  '3:2':    [700, 467],
+  '2:1':    [700, 350],
+  'golden': [700, 433],
+};
+
+const sizePreset = document.getElementById('sizePreset');
+const svgWidthEl = document.getElementById('svgWidth');
+const svgHeightEl = document.getElementById('svgHeight');
+
+sizePreset.addEventListener('change', () => {
+  const p = PRESETS[sizePreset.value];
+  if(p) {
+    svgWidthEl.value = p[0];
+    svgHeightEl.value = p[1];
+    if(parsedGraph) regenerateSvg();
+  }
+});
+
+[svgWidthEl, svgHeightEl].forEach(el => {
+  el.addEventListener('change', () => {
+    sizePreset.value = 'custom';
+    if(parsedGraph) regenerateSvg();
+  });
+});
+
+document.getElementById('seriesColor').addEventListener('input', e => {
+  seriesPalette[activeSwatch] = e.target.value;
+  swatchRow.querySelectorAll('.swatch')[activeSwatch].style.background = e.target.value;
+  if(parsedGraph) regenerateSvg();
+});
+
+// ── Palette swatches ──────────────────────────────────────────────────────
+function buildSwatches() {
+  swatchRow.innerHTML = '';
+  seriesPalette.forEach((c, i) => {
+    const s = document.createElement('div');
+    s.className = 'swatch' + (i === activeSwatch ? ' active' : '');
+    s.style.background = c;
+    s.title = `Series ${i + 1}`;
+    s.addEventListener('click', () => {
+      activeSwatch = i;
+      swatchRow.querySelectorAll('.swatch').forEach((el,j) => el.classList.toggle('active', j===i));
+      document.getElementById('seriesColor').value = seriesPalette[i];
+    });
+    swatchRow.appendChild(s);
+  });
+}
+buildSwatches();
+
+// ── Drop Zone ──────────────────────────────────────────────────────────────
+dropZone.addEventListener('click', () => { if(!dropZone.classList.contains('has-image')) fileInput.click(); });
+fileInput.addEventListener('change', e => { if(e.target.files[0]) handleFile(e.target.files[0]); });
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('dragging'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('dragging'));
+dropZone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropZone.classList.remove('dragging');
+  const f = e.dataTransfer.files[0];
+  if(f && f.type.startsWith('image/')) handleFile(f);
+});
+
+function handleFile(file) {
+  const reader = new FileReader();
+  reader.onload = e => {
+    uploadedDataUrl = e.target.result;
+    uploadedImage = file;
+    showImagePreview(e.target.result);
+    setStatus('idle', `Image loaded: ${file.name}`);
+    analyseBtn.disabled = !apiKeyInput.value.trim();
+  };
+  reader.readAsDataURL(file);
+}
+
+function showImagePreview(src) {
+  dropZone.innerHTML = `
+    <div class="image-container">
+      <img src="${src}" alt="Graph">
+      <div class="image-overlay">
+        <button class="btn btn-secondary btn-sm" id="clearBtn" style="width:auto">✕ Clear</button>
+      </div>
+    </div>`;
+  dropZone.classList.add('has-image');
+  document.getElementById('clearBtn').addEventListener('click', clearAll);
+}
+
+function clearAll() {
+  uploadedImage = null;
+  uploadedDataUrl = null;
+  parsedGraph = null;
+  generatedSvg = '';
+  dropZone.innerHTML = `
+    <div class="drop-icon">
+      <svg width="28" height="28" fill="none" viewBox="0 0 28 28">
+        <rect x="3" y="3" width="22" height="22" rx="4" stroke="#555" stroke-width="1.5"/>
+        <path d="M3 19 L9 13 L14 17 L19 11 L25 15" stroke="#555" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        <circle cx="9" cy="13" r="1.5" fill="#555"/>
+        <circle cx="14" cy="17" r="1.5" fill="#555"/>
+        <circle cx="19" cy="11" r="1.5" fill="#555"/>
+      </svg>
+    </div>
+    <div class="drop-title">Drop graph image here</div>
+    <div class="drop-sub">PNG · JPG · WEBP · SVG accepted</div>
+    <input type="file" id="fileInput" accept="image/*">`;
+  dropZone.classList.remove('has-image');
+  document.getElementById('fileInput').addEventListener('change', e => { if(e.target.files[0]) handleFile(e.target.files[0]); });
+  outputArea.style.display = 'none';
+  emptyOutput.style.display = 'flex';
+  [downloadSvgBtn, downloadPngBtn, copyCodeBtn].forEach(b => b.disabled = true);
+  setStatus('idle', 'Drop an image to begin');
+  analyseBtn.disabled = true;
+}
+
+// ── API Key persistence ───────────────────────────────────────────────────
+const rememberKeyChk = document.getElementById('rememberKey');
+const clearKeyBtn = document.getElementById('clearKeyBtn');
+const toggleKeyVis = document.getElementById('toggleKeyVis');
+
+// Load saved key on startup
+(function() {
+  const saved = localStorage.getItem('graphvec_apikey');
+  if(saved) {
+    apiKeyInput.value = saved;
+    rememberKeyChk.checked = true;
+    clearKeyBtn.style.display = 'inline';
+    analyseBtn.disabled = !uploadedDataUrl;
+  }
+})();
+
+apiKeyInput.addEventListener('input', () => {
+  analyseBtn.disabled = !(apiKeyInput.value.trim() && uploadedDataUrl);
+  if(rememberKeyChk.checked && apiKeyInput.value.trim()) {
+    localStorage.setItem('graphvec_apikey', apiKeyInput.value.trim());
+    clearKeyBtn.style.display = 'inline';
+  }
+});
+
+rememberKeyChk.addEventListener('change', () => {
+  if(rememberKeyChk.checked && apiKeyInput.value.trim()) {
+    localStorage.setItem('graphvec_apikey', apiKeyInput.value.trim());
+    clearKeyBtn.style.display = 'inline';
+  } else {
+    localStorage.removeItem('graphvec_apikey');
+    clearKeyBtn.style.display = 'none';
+  }
+});
+
+clearKeyBtn.addEventListener('click', () => {
+  localStorage.removeItem('graphvec_apikey');
+  apiKeyInput.value = '';
+  rememberKeyChk.checked = false;
+  clearKeyBtn.style.display = 'none';
+  analyseBtn.disabled = true;
+});
+
+toggleKeyVis.addEventListener('click', () => {
+  const isPassword = apiKeyInput.type === 'password';
+  apiKeyInput.type = isPassword ? 'text' : 'password';
+  toggleKeyVis.textContent = isPassword ? '🙈' : '👁';
+});
+
+// ── Status helpers ─────────────────────────────────────────────────────────
+function setStatus(type, msg) {
+  statusDot.className = 'status-dot' + (type === 'loading' ? ' active' : type === 'success' ? ' success' : type === 'error' ? ' error' : '');
+  statusText.textContent = msg;
+}
+
+// ── Tab switching ──────────────────────────────────────────────────────────
+document.querySelectorAll('.tab-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.querySelectorAll('.output-panel').forEach(p => p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('tab-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+// ── Analyse ────────────────────────────────────────────────────────────────
+analyseBtn.addEventListener('click', analyseGraph);
+
+async function analyseGraph() {
+  if(!uploadedDataUrl || !apiKeyInput.value.trim()) return;
+
+  setStatus('loading', 'Analysing graph with Claude Vision…');
+  analyseBtn.disabled = true;
+  analyseBtn.innerHTML = '<span class="spinner"></span> Analysing…';
+
+  try {
+    const base64 = uploadedDataUrl.split(',')[1];
+    const mediaType = uploadedDataUrl.match(/data:([^;]+)/)[1];
+
+    const prompt = `You are a precise graph digitisation expert. Analyse this graph image in detail and extract ALL data. Return ONLY valid JSON with this exact structure (no markdown, no backticks, no extra text):
+
+{
+  "title": "graph title if visible, else null",
+  "graphType": "line|scatter|bar|stacked-bar|box|area",
+  "dualAxis": true_or_false,
+  "xAxis": {
+    "label": "x axis title/label text or null",
+    "unit": "unit if visible or null",
+    "scale": "linear or log",
+    "min": number_or_null,
+    "max": number_or_null,
+    "ticks": [list of numeric tick values, or null if categorical]
+  },
+  "yAxis": {
+    "label": "left y axis title/label text or null",
+    "unit": "unit if visible or null",
+    "scale": "linear or log",
+    "min": number,
+    "max": number,
+    "ticks": [list of numeric tick values]
+  },
+  "yAxisRight": {
+    "label": "right y axis title/label text or null (set to null if no right axis)",
+    "unit": "unit if visible or null",
+    "scale": "linear or log",
+    "min": number_or_null,
+    "max": number_or_null,
+    "ticks": [list of numeric tick values, or null if no right axis]
+  },
+  "categories": ["label1", "label2", ...] or null,
+  "series": [
+    {
+      "name": "series name from legend or 'Series 1'",
+      "color": "detected hex color e.g. #2563eb or null",
+      "yAxis": "left or right",
+      "seriesType": "scatter|line|bestfit|bar|box",
+      "points": [
+        {
+          "x": number_or_category_index,
+          "label": "category label string if bar/box chart, else null",
+          "y": number,
+          "errorYUp": upper_error_bar_in_data_units_or_null,
+          "errorYDown": lower_error_bar_in_data_units_or_null,
+          "errorX": half_error_bar_size_in_data_units_or_null,
+          "q1": number_or_null,
+          "median": number_or_null,
+          "q3": number_or_null,
+          "whiskerLow": number_or_null,
+          "whiskerHigh": number_or_null,
+          "outliers": [number] or null
+        }
+      ]
+    }
+  ],
+  "notes": "any other notable features"
+}
+
+CRITICAL RULES:
+1. For BAR CHARTS (bar or stacked-bar): the x-axis uses category labels (strings like "Control", "Treatment A", etc.), NOT numbers. Set "categories" to the ordered list of all category names. Set each point's "label" to its category string and "x" to its 0-based index. IMPORTANT: if bars are stacked on top of each other (segments forming a single tall column per category), use graphType "stacked-bar". If bars are placed side-by-side per category, use "bar". For stacked bars, each series "y" value is the actual segment value (not cumulative) — report the raw size of each coloured segment.
+2. ERROR BARS: Inspect very carefully for error bars — vertical lines with small horizontal caps extending from data points or bar tops. They represent uncertainty/SD/SEM/CI. You MUST report them if visible. Use "errorYUp" for the upward extent and "errorYDown" for the downward extent, both as positive values in data units (distance from the point to the cap tip, read from the y-axis scale). If bars are SYMMETRIC set both to the same value. If the error bar only goes UP (common on bar charts — a line above the bar top with no line below), set "errorYUp" to the measured value and "errorYDown" to 0. If only going DOWN, set "errorYDown" to the value and "errorYUp" to 0. Never leave both null if error bars are visible.
+3. DUAL Y-AXIS: If the graph has both a left and a right y-axis with different scales (common in combo charts mixing e.g. bar and line), set "dualAxis" to true, populate "yAxisRight" fully, and set each series' "yAxis" to "left" or "right" based on which axis its values correspond to. If there is only one y-axis, set "dualAxis" to false and "yAxisRight" to null.
+4. LOGARITHMIC AXES: Look carefully at the tick spacing and labels. A log axis has ticks at powers of 10 (0.001, 0.01, 0.1, 1, 10, 100…) or other multiplicative intervals, and the visual spacing between ticks is unequal (compressed at the top). If an axis is logarithmic, set its "scale" to "log". Report all tick values as actual numbers (not exponents). The "min" value must be greater than 0 for log axes.
+5. SERIES TYPE: Each series must have a "seriesType". Use "scatter" for individual data points with no connecting line. Use "line" for a series where points are connected by a line. Use "bestfit" ONLY if a trend line, regression line, or line of best fit is VISUALLY PRESENT in the image — do NOT calculate or add one yourself. A best-fit line typically runs smoothly through or near scatter points without passing through each one exactly, and is often drawn in a different colour or style. If you see one, represent it as a separate series with seriesType "bestfit" and extract only the start point, end point, and any visible inflection points (not every scatter point). Use "bar" for bar series.
+6. BOX AND WHISKER PLOTS: If the graph is a box plot, set graphType to "box" and seriesType to "box" for each series. Each box represents one category, so set "categories" as normal. For each point extract: "whiskerLow" (bottom whisker tip), "q1" (bottom of box), "median" (middle line), "q3" (top of box), "whiskerHigh" (top whisker tip), and "outliers" as an array of individual point values shown beyond the whiskers. Set "y" to the median value. Read all values carefully from the y-axis scale.
+7. UNEQUAL SERIES LENGTHS: Different series will often have different numbers of data points. NEVER invent or pad points to make series lengths match. Only report points you can actually see in the graph. It is completely valid and expected for one series to have 3 points and another to have 12.
+8. Be precise: read all values carefully against the axis scales.
+9. Extract ALL real data points. Do not fabricate any.`;
+
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKeyInput.value.trim(),
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-opus-4-8',
+        max_tokens: 4096,
+        messages: [{
+          role: 'user',
+          content: [
+            { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
+            { type: 'text', text: prompt }
+          ]
+        }]
+      })
+    });
+
+    if(!response.ok) {
+      const err = await response.json();
+      throw new Error(err.error?.message || 'API error');
+    }
+
+    const data = await response.json();
+    const raw = data.content.map(b => b.text || '').join('');
+    const cleaned = raw.replace(/```json|```/g, '').trim();
+    parsedGraph = JSON.parse(cleaned);
+
+    // Map detected colours to palette slots
+    if(parsedGraph.series) {
+      parsedGraph.series.forEach((s, i) => {
+        if(s.color && i < seriesPalette.length) {
+          seriesPalette[i] = s.color;
+        }
+      });
+      buildSwatches();
+    }
+
+    setStatus('success', `Extracted ${parsedGraph.series?.reduce((n,s)=>n+s.points.length,0)||0} data points across ${parsedGraph.series?.length||0} series`);
+    regenerateSvg();
+    populateDataTable();
+    showOutput();
+
+  } catch(e) {
+    setStatus('error', 'Error: ' + e.message);
+    console.error(e);
+  } finally {
+    analyseBtn.disabled = false;
+    analyseBtn.innerHTML = `<svg width="14" height="14" fill="none" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.5"/><path d="M5 7 L6.5 8.5 L9 5.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg> Vectorise Graph`;
+  }
+}
+
+// ── SVG Generation ─────────────────────────────────────────────────────────
+function getStyleOpts() {
+  return {
+    showAxes: document.getElementById('showAxes').checked,
+    showGrid: document.getElementById('showGrid').checked,
+    showLabels: document.getElementById('showLabels').checked,
+    showLegend: document.getElementById('showLegend').checked,
+    showErrorBars: document.getElementById('showErrorBars').checked,
+    showDataPoints: document.getElementById('showDataPoints').checked,
+    showBestFit: document.getElementById('showBestFit').checked,
+    graphType: document.getElementById('graphType').value,
+    lineThickness: parseFloat(document.getElementById('lineThickness').value),
+    lineStyle: document.getElementById('lineStyle').value,
+    markerSize: parseFloat(document.getElementById('markerSize').value),
+    markerShape: document.getElementById('markerShape').value,
+    bgColor: document.getElementById('bgColor').value,
+    axisColor: document.getElementById('axisColor').value,
+    gridColor: document.getElementById('gridColor').value,
+    fontSize: parseInt(document.getElementById('fontSize').value),
+    fontFamily: document.getElementById('fontFamily').value,
+    palette: [...seriesPalette],
+    svgWidth: parseInt(document.getElementById('svgWidth').value) || 700,
+    svgHeight: parseInt(document.getElementById('svgHeight').value) || 394,
+  };
+}
+
+function regenerateSvg() {
+  if(!parsedGraph) return;
+  const opts = getStyleOpts();
+  generatedSvg = buildSvg(parsedGraph, opts);
+  svgView.innerHTML = generatedSvg;
+  codeView.textContent = generatedSvg;
+  [downloadSvgBtn, downloadPngBtn, copyCodeBtn].forEach(b => b.disabled = false);
+}
+
+function buildSvg(g, o) {
+  const W = o.svgWidth || 700, H = o.svgHeight || 394;
+  const hasDual = !!(g.dualAxis && g.yAxisRight?.min != null);
+  const ml = 72, mr = hasDual ? 72 : 36, mt = 50, mb = 60;
+  const legH = (o.showLegend && g.series?.length > 0) ? 30 : 0;
+  const pw = W - ml - mr;
+  const ph = H - mt - mb - legH;
+
+  const gtype = o.graphType === 'auto' ? (g.graphType || 'line') : o.graphType;
+
+  // Determine if categorical (bar chart with labels)
+  const cats = g.categories && g.categories.length > 0 ? g.categories : null;
+  const nCats = cats ? cats.length : 0;
+
+  const xMin = g.xAxis?.min ?? 0;
+  const xMax = g.xAxis?.max ?? 10;
+  const xLog = g.xAxis?.scale === 'log';
+
+  // Left axis
+  const yMin = g.yAxis?.min ?? 0;
+  const yLog = g.yAxis?.scale === 'log';
+
+  // For stacked bars: compute the true max from summed segment values per category
+  let yMax = g.yAxis?.max ?? 10;
+  if(gtype === 'stacked-bar' && g.series?.length) {
+    const nPtsCheck = g.series[0]?.points?.length || 0;
+    let stackMax = 0;
+    for(let pi = 0; pi < nPtsCheck; pi++) {
+      const total = g.series.reduce((sum, ser) => sum + (ser.points?.[pi]?.y ?? 0), 0);
+      if(total > stackMax) stackMax = total;
+    }
+    if(stackMax > yMax * 0.98) yMax = stackMax * 1.05;
+  }
+
+  // Right axis
+  const yMinR = g.yAxisRight?.min ?? 0;
+  const yMaxR = g.yAxisRight?.max ?? 10;
+  const yLogR = g.yAxisRight?.scale === 'log';
+
+  // Categorical x: evenly spaced slots
+  function catX(i) { return ml + (i + 0.5) * (pw / nCats); }
+
+  // Numeric x (linear or log)
+  function cx(v) {
+    if(v == null || isNaN(v)) return ml;
+    if(xLog) {
+      if(v <= 0) return ml;
+      return ml + (Math.log10(v) - Math.log10(xMin)) / (Math.log10(xMax) - Math.log10(xMin)) * pw;
+    }
+    return ml + ((v - xMin) / (xMax - xMin)) * pw;
+  }
+
+  // Left y (linear or log)
+  function cy(v) {
+    if(v == null || isNaN(v)) return mt + ph;
+    if(yLog) {
+      if(v <= 0) return mt + ph;
+      return mt + ph - (Math.log10(v) - Math.log10(yMin)) / (Math.log10(yMax) - Math.log10(yMin)) * ph;
+    }
+    return mt + ph - ((v - yMin) / (yMax - yMin)) * ph;
+  }
+
+  // Right y (linear or log)
+  function cyR(v) {
+    if(v == null || isNaN(v)) return mt + ph;
+    if(yLogR) {
+      if(v <= 0) return mt + ph;
+      return mt + ph - (Math.log10(v) - Math.log10(yMinR)) / (Math.log10(yMaxR) - Math.log10(yMinR)) * ph;
+    }
+    return mt + ph - ((v - yMinR) / (yMaxR - yMinR)) * ph;
+  }
+
+  // Pick correct cy for a series
+  function cyFor(ser, v) { return (hasDual && ser.yAxis === 'right') ? cyR(v) : cy(v); }
+  function yMinFor(ser) { return (hasDual && ser.yAxis === 'right') ? yMinR : yMin; }
+  function yMaxFor(ser) { return (hasDual && ser.yAxis === 'right') ? yMaxR : yMax; }
+  function yLogFor(ser) { return (hasDual && ser.yAxis === 'right') ? yLogR : yLog; }
+
+  // For log axes, error bar scaling must use log-space distance not linear
+  function errPx(ser, centre, errVal, direction) {
+    // direction: +1 = up (decreasing y pixel), -1 = down (increasing y pixel)
+    if(!errVal || errVal === 0) return cyFor(ser, centre);
+    if(yLogFor(ser)) {
+      const target = direction > 0 ? centre * Math.pow(10, errVal / centre) : centre / Math.pow(10, errVal / centre);
+      // Simpler: treat errVal as already in data units, project linearly in log space
+      const logCentre = Math.log10(centre);
+      const logRange = Math.log10(yMaxFor(ser)) - Math.log10(yMinFor(ser));
+      const logErrFrac = (errVal / centre) / Math.LN10; // approximate: d(log10 v) ≈ dv / (v * ln10)
+      return cyFor(ser, centre) - direction * (logErrFrac / logRange) * ph;
+    }
+    return cyFor(ser, centre) - direction * (errVal / (yMaxFor(ser) - yMinFor(ser))) * ph;
+  }
+
+  const dashMap = { solid: 'none', dashed: `${o.lineThickness*3},${o.lineThickness*2}`, dotted: `${o.lineThickness},${o.lineThickness*2}` };
+  const dash = dashMap[o.lineStyle] || 'none';
+
+  let s = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" font-family="${o.fontFamily}" font-size="${o.fontSize}">`;
+  s += `<rect width="${W}" height="${H}" fill="${o.bgColor}" rx="4"/>`;
+  s += `<defs><clipPath id="plot"><rect x="${ml}" y="${mt}" width="${pw}" height="${ph}"/></clipPath></defs>`;
+
+  // ── Grid ────────────────────────────────────────────────────────────────
+  if(o.showGrid) {
+    if(cats || gtype === 'box') {
+      // Vertical grid between categories
+      for(let i = 1; i < nCats; i++) {
+        const x = ml + i * (pw / nCats);
+        s += `<line x1="${x}" y1="${mt}" x2="${x}" y2="${mt+ph}" stroke="${o.gridColor}" stroke-width="1"/>`;
+      }
+    } else {
+      const xTicks = (g.xAxis?.ticks || linspace(xMin, xMax, 6)).filter(t => t != null && !isNaN(t));
+      xTicks.forEach(t => {
+        const x = cx(t);
+        if(x >= ml - 1 && x <= ml + pw + 1)
+          s += `<line x1="${x}" y1="${mt}" x2="${x}" y2="${mt+ph}" stroke="${o.gridColor}" stroke-width="1"/>`;
+      });
+    }
+    const yTicks = (yLog ? (g.yAxis?.ticks || logTicks(yMin, yMax)) : (gtype === 'stacked-bar' ? linspace(yMin, yMax, 6) : (g.yAxis?.ticks || linspace(yMin, yMax, 6)))).filter(t => t != null && !isNaN(t) && t > 0 || !yLog);
+    yTicks.forEach(t => {
+      const y = cy(t);
+      if(y >= mt - 1 && y <= mt + ph + 1)
+        s += `<line x1="${ml}" y1="${y}" x2="${ml+pw}" y2="${y}" stroke="${o.gridColor}" stroke-width="1"/>`;
+    });
+  }
+
+  // ── Series ──────────────────────────────────────────────────────────────
+  const nSeries = g.series?.length || 1;
+
+  if(g.series) {
+    g.series.forEach((ser, si) => {
+      const col = o.palette[si % o.palette.length];
+      const pts = ser.points || [];
+
+      if(gtype === 'box' || ser.seriesType === 'box') {
+        // Box & whisker rendering
+        const nCatsLocal = cats ? nCats : pts.length;
+        const slotW = pw / Math.max(nCatsLocal, 1);
+        const boxPad = slotW * 0.2;
+        const bw = Math.max(8, (slotW - boxPad * 2) / nSeries - 4);
+        const groupOff = (si - (nSeries - 1) / 2) * (bw + 4);
+        const capW = Math.min(bw * 0.4, 10);
+
+        pts.forEach((p, pi) => {
+          if(p.q1 == null || p.q3 == null || p.median == null) return;
+          const centreX = cats ? catX(p.x ?? pi) : cx(p.x ?? pi);
+          const px = centreX + groupOff;
+
+          const yQ1  = cyFor(ser, p.q1);
+          const yQ3  = cyFor(ser, p.q3);
+          const yMed = cyFor(ser, p.median);
+          const yWL  = p.whiskerLow  != null ? cyFor(ser, p.whiskerLow)  : yQ1;
+          const yWH  = p.whiskerHigh != null ? cyFor(ser, p.whiskerHigh) : yQ3;
+          const bxLeft  = (px - bw / 2).toFixed(2);
+          const bxRight = (px + bw / 2).toFixed(2);
+          const strokeW = Math.max(1, o.lineThickness * 0.9);
+
+          // IQR box
+          s += `<rect x="${bxLeft}" y="${yQ3.toFixed(2)}" width="${bw.toFixed(2)}" height="${(yQ1 - yQ3).toFixed(2)}" fill="${col}" fill-opacity="0.25" stroke="${col}" stroke-width="${strokeW}" clip-path="url(#plot)"/>`;
+          // Median line
+          s += `<line x1="${bxLeft}" y1="${yMed.toFixed(2)}" x2="${bxRight}" y2="${yMed.toFixed(2)}" stroke="${col}" stroke-width="${(strokeW * 2).toFixed(2)}" clip-path="url(#plot)"/>`;
+          // Whisker stems
+          s += `<line x1="${px.toFixed(2)}" y1="${yQ1.toFixed(2)}" x2="${px.toFixed(2)}" y2="${yWL.toFixed(2)}" stroke="${col}" stroke-width="${strokeW}" stroke-dasharray="3,2" clip-path="url(#plot)"/>`;
+          s += `<line x1="${px.toFixed(2)}" y1="${yQ3.toFixed(2)}" x2="${px.toFixed(2)}" y2="${yWH.toFixed(2)}" stroke="${col}" stroke-width="${strokeW}" stroke-dasharray="3,2" clip-path="url(#plot)"/>`;
+          // Whisker caps
+          s += `<line x1="${(px-capW).toFixed(2)}" y1="${yWL.toFixed(2)}" x2="${(px+capW).toFixed(2)}" y2="${yWL.toFixed(2)}" stroke="${col}" stroke-width="${strokeW}" clip-path="url(#plot)"/>`;
+          s += `<line x1="${(px-capW).toFixed(2)}" y1="${yWH.toFixed(2)}" x2="${(px+capW).toFixed(2)}" y2="${yWH.toFixed(2)}" stroke="${col}" stroke-width="${strokeW}" clip-path="url(#plot)"/>`;
+          // Outliers
+          if(p.outliers?.length) {
+            p.outliers.forEach(ov => {
+              s += markerSvg(px, cyFor(ser, ov), o.markerSize * 0.8, 'circle', col);
+            });
+          }
+        });
+
+      } else if(gtype === 'bar' || gtype === 'stacked-bar') {
+        const slotW = cats ? pw / nCats : pw / Math.max(pts.length, 1);
+        const groupPad = slotW * 0.15;
+
+        if(gtype === 'stacked-bar') {
+          // Stacked: drawn after all series are iterated — skip per-series, handle below
+          // (stacked rendering is done in a separate pass after this loop)
+        } else {
+          // Grouped bars
+          const bw = Math.max(4, (slotW - groupPad * 2) / nSeries - 2);
+          const groupOff = (si - (nSeries - 1) / 2) * (bw + 2);
+
+          pts.forEach((p, pi) => {
+            const centreX = cats ? catX(p.x ?? pi) : cx(p.x ?? pi);
+            const bx = centreX + groupOff - bw / 2;
+            const by = cyFor(ser, p.y);
+            const bh = cyFor(ser, yMinFor(ser)) - by;
+            s += `<rect x="${bx.toFixed(2)}" y="${by.toFixed(2)}" width="${bw.toFixed(2)}" height="${bh.toFixed(2)}" fill="${col}" fill-opacity="0.85" clip-path="url(#plot)"/>`;
+
+            // Error bars on grouped bars
+            if(o.showErrorBars && (p.errorYUp != null || p.errorYDown != null || p.errorY != null)) {
+              const px = centreX + groupOff;
+              const errUpY   = errPx(ser, p.y, p.errorYUp   ?? p.errorY ?? 0,  1);
+              const errDownY = errPx(ser, p.y, p.errorYDown ?? p.errorY ?? 0, -1);
+              const capW = Math.min(bw * 0.4, 6);
+              s += `<g clip-path="url(#plot)" stroke="${col}" stroke-width="${Math.max(1, o.lineThickness * 0.8)}">`;
+              s += `<line x1="${px.toFixed(2)}" y1="${errUpY.toFixed(2)}" x2="${px.toFixed(2)}" y2="${errDownY.toFixed(2)}"/>`;
+              if(errUpY   < by) s += `<line x1="${(px-capW).toFixed(2)}" y1="${errUpY.toFixed(2)}"   x2="${(px+capW).toFixed(2)}" y2="${errUpY.toFixed(2)}"/>`;
+              if(errDownY > by) s += `<line x1="${(px-capW).toFixed(2)}" y1="${errDownY.toFixed(2)}" x2="${(px+capW).toFixed(2)}" y2="${errDownY.toFixed(2)}"/>`;
+              s += `</g>`;
+            }
+          });
+        }
+
+      } else {
+        // Determine per-series draw mode
+        // seriesType overrides graphType for mixed charts
+        const stype = ser.seriesType || (gtype === 'scatter' ? 'scatter' : gtype === 'area' ? 'area' : 'line');
+        const drawLine    = stype === 'line' || stype === 'area' || (stype === 'bestfit' && o.showBestFit);
+        const drawMarkers = stype === 'scatter' || stype === 'line';
+        // bestfit: thinner dashed line, no markers
+        const lineW   = stype === 'bestfit' ? Math.max(1, o.lineThickness * 0.85) : o.lineThickness;
+        const lineDash = stype === 'bestfit' ? `${o.lineThickness*4},${o.lineThickness*2}` : dash;
+
+        // Line / area / bestfit path
+        if(pts.length > 1 && drawLine) {
+          const pathD = pts.map((p,i) => `${i===0?'M':'L'}${cx(p.x).toFixed(2)},${cyFor(ser,p.y).toFixed(2)}`).join(' ');
+          if(stype === 'area') {
+            const aD = pathD + ` L${cx(pts[pts.length-1].x).toFixed(2)},${cyFor(ser,yMinFor(ser)).toFixed(2)} L${cx(pts[0].x).toFixed(2)},${cyFor(ser,yMinFor(ser)).toFixed(2)} Z`;
+            s += `<path d="${aD}" fill="${col}" fill-opacity="0.15" clip-path="url(#plot)"/>`;
+          }
+          s += `<path d="${pathD}" fill="none" stroke="${col}" stroke-width="${lineW}" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="${lineDash}" clip-path="url(#plot)"/>`;
+        }
+
+        // Error bars (line/scatter — not bestfit)
+        if(o.showErrorBars && stype !== 'bestfit') {
+          pts.forEach(p => {
+            const px = cx(p.x), py = cyFor(ser, p.y);
+            const capW = 5;
+            if(p.errorYUp != null || p.errorYDown != null || p.errorY != null) {
+              const errUpY   = errPx(ser, p.y, p.errorYUp   ?? p.errorY ?? 0,  1);
+              const errDownY = errPx(ser, p.y, p.errorYDown ?? p.errorY ?? 0, -1);
+              s += `<g clip-path="url(#plot)" stroke="${col}" stroke-width="${Math.max(1, o.lineThickness * 0.75)}">`;
+              s += `<line x1="${px.toFixed(2)}" y1="${errUpY.toFixed(2)}" x2="${px.toFixed(2)}" y2="${errDownY.toFixed(2)}"/>`;
+              if(errUpY   < py) s += `<line x1="${(px-capW).toFixed(2)}" y1="${errUpY.toFixed(2)}"   x2="${(px+capW).toFixed(2)}" y2="${errUpY.toFixed(2)}"/>`;
+              if(errDownY > py) s += `<line x1="${(px-capW).toFixed(2)}" y1="${errDownY.toFixed(2)}" x2="${(px+capW).toFixed(2)}" y2="${errDownY.toFixed(2)}"/>`;
+              s += `</g>`;
+            }
+            if(p.errorX != null) {
+              const ex = (p.errorX / (xMax - xMin)) * pw;
+              s += `<g clip-path="url(#plot)" stroke="${col}" stroke-width="${Math.max(1, o.lineThickness * 0.75)}">`;
+              s += `<line x1="${(px-ex).toFixed(2)}" y1="${py.toFixed(2)}" x2="${(px+ex).toFixed(2)}" y2="${py.toFixed(2)}"/>`;
+              s += `<line x1="${(px-ex).toFixed(2)}" y1="${(py-capW).toFixed(2)}" x2="${(px-ex).toFixed(2)}" y2="${(py+capW).toFixed(2)}"/>`;
+              s += `<line x1="${(px+ex).toFixed(2)}" y1="${(py-capW).toFixed(2)}" x2="${(px+ex).toFixed(2)}" y2="${(py+capW).toFixed(2)}"/>`;
+              s += `</g>`;
+            }
+          });
+        }
+
+        // Markers — only for scatter/line series, not bestfit
+        if(o.showDataPoints && drawMarkers) {
+          pts.forEach(p => {
+            s += markerSvg(cx(p.x), cyFor(ser, p.y), o.markerSize, o.markerShape, col);
+          });
+        }
+      }
+    });
+  }
+
+  // ── Stacked bar rendering pass ──────────────────────────────────────────
+  if(gtype === 'stacked-bar' && g.series) {
+    const nCatsLocal = cats ? nCats : (g.series[0]?.points?.length || 1);
+    const slotW = pw / nCatsLocal;
+    const groupPad = slotW * 0.15;
+    const bw = Math.max(6, slotW - groupPad * 2);
+
+    // Build cumulative stack per category index
+    const nPts = g.series[0]?.points?.length || 0;
+    for(let pi = 0; pi < nPts; pi++) {
+      let cumulative = yMin;
+      g.series.forEach((ser, si) => {
+        const col = o.palette[si % o.palette.length];
+        const p = ser.points[pi];
+        if(!p) return;
+        const val = p.y ?? 0;
+        const centreX = cats ? catX(p.x ?? pi) : cx(p.x ?? pi);
+        const bx = centreX - bw / 2;
+        const by = cyFor(ser, cumulative + val);
+        const bh = cyFor(ser, cumulative) - by;
+        s += `<rect x="${bx.toFixed(2)}" y="${by.toFixed(2)}" width="${bw.toFixed(2)}" height="${Math.max(0,bh).toFixed(2)}" fill="${col}" fill-opacity="0.9" clip-path="url(#plot)"/>`;
+        // Subtle separator line between segments
+        if(si > 0 && bh > 1) {
+          s += `<line x1="${bx.toFixed(2)}" y1="${by.toFixed(2)}" x2="${(bx+bw).toFixed(2)}" y2="${by.toFixed(2)}" stroke="${o.bgColor}" stroke-width="1.5" clip-path="url(#plot)"/>`;
+        }
+        // Error bars on top segment only (last series)
+        if(o.showErrorBars && (p.errorYUp != null || p.errorYDown != null || p.errorY != null) && si === g.series.length - 1) {
+          const px = centreX;
+          const errUpY   = errPx(ser, p.y, p.errorYUp   ?? p.errorY ?? 0,  1);
+          const errDownY = errPx(ser, p.y, p.errorYDown ?? p.errorY ?? 0, -1);
+          const capW = Math.min(bw * 0.3, 6);
+          s += `<g clip-path="url(#plot)" stroke="${col}" stroke-width="${Math.max(1, o.lineThickness * 0.8)}">`;
+          s += `<line x1="${px.toFixed(2)}" y1="${errUpY.toFixed(2)}" x2="${px.toFixed(2)}" y2="${errDownY.toFixed(2)}"/>`;
+          if(errUpY   < by) s += `<line x1="${(px-capW).toFixed(2)}" y1="${errUpY.toFixed(2)}"   x2="${(px+capW).toFixed(2)}" y2="${errUpY.toFixed(2)}"/>`;
+          if(errDownY > by) s += `<line x1="${(px-capW).toFixed(2)}" y1="${errDownY.toFixed(2)}" x2="${(px+capW).toFixed(2)}" y2="${errDownY.toFixed(2)}"/>`;
+          s += `</g>`;
+        }
+        cumulative += val;
+      });
+    }
+  }
+
+  // ── Axes ─────────────────────────────────────────────────────────────────
+  if(o.showAxes) {
+    s += `<line x1="${ml}" y1="${mt}" x2="${ml}" y2="${mt+ph}" stroke="${o.axisColor}" stroke-width="1.5" stroke-linecap="square"/>`;
+    s += `<line x1="${ml}" y1="${mt+ph}" x2="${ml+pw}" y2="${mt+ph}" stroke="${o.axisColor}" stroke-width="1.5" stroke-linecap="square"/>`;
+
+    if(o.showLabels) {
+      if(cats) {
+        // Categorical x labels
+        cats.forEach((label, i) => {
+          const x = catX(i);
+          s += `<line x1="${x}" y1="${mt+ph}" x2="${x}" y2="${mt+ph+5}" stroke="${o.axisColor}" stroke-width="1"/>`;
+          // Rotate if long labels
+          const rotate = label.length > 6;
+          if(rotate) {
+            s += `<text x="${x}" y="${mt+ph+10}" text-anchor="end" fill="${o.axisColor}" font-size="${o.fontSize*0.85}" transform="rotate(-35,${x},${mt+ph+10})">${esc(label)}</text>`;
+          } else {
+            s += `<text x="${x}" y="${mt+ph+18}" text-anchor="middle" fill="${o.axisColor}" font-size="${o.fontSize*0.9}">${esc(label)}</text>`;
+          }
+        });
+      } else {
+        const xTicks = (g.xAxis?.ticks || linspace(xMin, xMax, 6)).filter(t => t != null && !isNaN(t));
+        xTicks.forEach(t => {
+          const x = cx(t);
+          s += `<line x1="${x}" y1="${mt+ph}" x2="${x}" y2="${mt+ph+5}" stroke="${o.axisColor}" stroke-width="1"/>`;
+          s += `<text x="${x}" y="${mt+ph+18}" text-anchor="middle" fill="${o.axisColor}" font-size="${o.fontSize*0.9}">${fmt(t)}</text>`;
+        });
+      }
+
+      // Y ticks
+      const yTicks = (yLog ? (g.yAxis?.ticks || logTicks(yMin, yMax)) : (gtype === 'stacked-bar' ? linspace(yMin, yMax, 6) : (g.yAxis?.ticks || linspace(yMin, yMax, 6)))).filter(t => t != null && !isNaN(t) && t > 0 || !yLog);
+      yTicks.forEach(t => {
+        const y = cy(t);
+        s += `<line x1="${ml-5}" y1="${y}" x2="${ml}" y2="${y}" stroke="${o.axisColor}" stroke-width="1"/>`;
+        s += `<text x="${ml-8}" y="${y+o.fontSize*0.35}" text-anchor="end" fill="${o.axisColor}" font-size="${o.fontSize*0.9}">${fmt(t)}</text>`;
+      });
+
+      // Axis titles
+      if(g.xAxis?.label) {
+        s += `<text x="${ml+pw/2}" y="${H-8}" text-anchor="middle" fill="${o.axisColor}" font-size="${o.fontSize}" font-weight="600">${esc(g.xAxis.label)}${g.xAxis.unit?' ('+esc(g.xAxis.unit)+')':''}</text>`;
+      }
+      if(g.yAxis?.label) {
+        s += `<text x="${-(mt+ph/2)}" y="${14}" text-anchor="middle" fill="${o.axisColor}" font-size="${o.fontSize}" font-weight="600" transform="rotate(-90)">${esc(g.yAxis.label)}${g.yAxis.unit?' ('+esc(g.yAxis.unit)+')':(yLog?' (log)':'')}</text>`;
+      }
+
+      // Right y-axis
+      if(hasDual) {
+        // Right axis line
+        s += `<line x1="${ml+pw}" y1="${mt}" x2="${ml+pw}" y2="${mt+ph}" stroke="${o.axisColor}" stroke-width="1.5" stroke-linecap="square"/>`;
+        const yTicksR = (yLogR ? (g.yAxisRight?.ticks || logTicks(yMinR, yMaxR)) : (g.yAxisRight?.ticks || linspace(yMinR, yMaxR, 6))).filter(t => t != null && !isNaN(t));
+        yTicksR.forEach(t => {
+          const y = cyR(t);
+          if(y >= mt - 1 && y <= mt + ph + 1) {
+            s += `<line x1="${ml+pw}" y1="${y}" x2="${ml+pw+5}" y2="${y}" stroke="${o.axisColor}" stroke-width="1"/>`;
+            s += `<text x="${ml+pw+8}" y="${y+o.fontSize*0.35}" text-anchor="start" fill="${o.axisColor}" font-size="${o.fontSize*0.9}">${fmt(t)}</text>`;
+          }
+        });
+        if(g.yAxisRight?.label) {
+          s += `<text x="${mt+ph/2}" y="${-(ml+pw+mr-14)}" text-anchor="middle" fill="${o.axisColor}" font-size="${o.fontSize}" font-weight="600" transform="rotate(90)">${esc(g.yAxisRight.label)}${g.yAxisRight.unit?' ('+esc(g.yAxisRight.unit)+')':''}</text>`;
+        }
+      }
+    }
+  }
+
+  // ── Title ────────────────────────────────────────────────────────────────
+  if(g.title && o.showLabels) {
+    s += `<text x="${ml+pw/2}" y="${mt-16}" text-anchor="middle" fill="${o.axisColor}" font-size="${o.fontSize*1.3}" font-weight="700">${esc(g.title)}</text>`;
+  }
+
+  // ── Legend ───────────────────────────────────────────────────────────────
+  if(o.showLegend && g.series?.length > 0) {
+    const ly = mt + ph + mb - 14;
+    let lx = ml;
+    g.series.forEach((ser, si) => {
+      const col = o.palette[si % o.palette.length];
+      if(gtype === 'box' || ser.seriesType === 'box') {
+        // Legend swatch: small box with median line
+        s += `<rect x="${lx}" y="${ly-5}" width="14" height="10" fill="${col}" fill-opacity="0.25" stroke="${col}" stroke-width="1.5" rx="1"/>`;
+        s += `<line x1="${lx}" y1="${ly}" x2="${lx+14}" y2="${ly}" stroke="${col}" stroke-width="2"/>`;
+      } else if(gtype === 'bar' || gtype === 'stacked-bar') {
+        s += `<rect x="${lx}" y="${ly-7}" width="16" height="10" fill="${col}" fill-opacity="0.9" rx="2"/>`;
+      } else {
+        const legStype = ser.seriesType || (gtype === 'scatter' ? 'scatter' : 'line');
+        if(legStype === 'bestfit' && !o.showBestFit) { lx -= 0; return; } // skip hidden bestfit from legend
+        const legDash = legStype === 'bestfit' ? `${o.lineThickness*4},${o.lineThickness*2}` : 'none';
+        s += `<line x1="${lx}" y1="${ly}" x2="${lx+20}" y2="${ly}" stroke="${col}" stroke-width="${o.lineThickness}" stroke-dasharray="${legDash}"/>`;
+        if(legStype !== 'bestfit') s += markerSvg(lx+10, ly, o.markerSize*0.8, o.markerShape, col);
+      }
+      s += `<text x="${lx+24}" y="${ly+o.fontSize*0.35}" fill="${o.axisColor}" font-size="${o.fontSize*0.9}">${esc(ser.name || 'Series '+(si+1))}</text>`;
+      lx += 28 + (ser.name||('Series '+(si+1))).length * (o.fontSize * 0.58) + 10;
+    });
+  }
+
+  s += '</svg>';
+  return s;
+}
+
+function markerSvg(x, y, r, shape, col) {
+  const filled = `fill="${col}"`;
+  switch(shape) {
+    case 'square': return `<rect x="${x-r}" y="${y-r}" width="${r*2}" height="${r*2}" ${filled} clip-path="url(#plot)"/>`;
+    case 'triangle': return `<polygon points="${x},${y-r*1.2} ${x-r},${y+r*0.8} ${x+r},${y+r*0.8}" ${filled} clip-path="url(#plot)"/>`;
+    case 'diamond': return `<polygon points="${x},${y-r*1.3} ${x+r},${y} ${x},${y+r*1.3} ${x-r},${y}" ${filled} clip-path="url(#plot)"/>`;
+    case 'cross': return `<g stroke="${col}" stroke-width="${Math.max(1.5,r/2)}" stroke-linecap="round" clip-path="url(#plot)"><line x1="${x-r}" y1="${y-r}" x2="${x+r}" y2="${y+r}"/><line x1="${x+r}" y1="${y-r}" x2="${x-r}" y2="${y+r}"/></g>`;
+    default: return `<circle cx="${x}" cy="${y}" r="${r}" ${filled} clip-path="url(#plot)"/>`;
+  }
+}
+
+function logTicks(a, b) {
+  // Generate ticks at powers of 10 between a and b
+  if(a <= 0) a = 1e-10;
+  const lo = Math.floor(Math.log10(a));
+  const hi = Math.ceil(Math.log10(b));
+  const ticks = [];
+  for(let e = lo; e <= hi; e++) {
+    ticks.push(Math.pow(10, e));
+  }
+  // If very few decades, add intermediate values (2, 5 per decade)
+  if(ticks.length <= 2) {
+    const extra = [];
+    for(let e = lo; e < hi; e++) {
+      extra.push(2 * Math.pow(10, e));
+      extra.push(5 * Math.pow(10, e));
+    }
+    return [...ticks, ...extra].filter(t => t >= a && t <= b).sort((a,b) => a-b);
+  }
+  return ticks.filter(t => t >= a * 0.999 && t <= b * 1.001);
+}
+
+function linspace(a, b, n) {
+  const step = (b - a) / (n - 1);
+  return Array.from({length: n}, (_, i) => +(a + i * step).toPrecision(6));
+}
+
+function fmt(n) {
+  if(n == null || isNaN(n) || typeof n !== 'number') return String(n ?? '');
+  if(Math.abs(n) >= 1e5 || (Math.abs(n) < 0.01 && n !== 0)) return n.toExponential(1);
+  if(Number.isInteger(n)) return n.toString();
+  return (+n.toPrecision(4)).toString();
+}
+
+function esc(s) { return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// ── Data Table (editable) ────────────────────────────────────────────────
+function populateDataTable() {
+  if(!parsedGraph?.series) return;
+  renderDataTable();
+}
+
+function renderDataTable() {
+  if(!parsedGraph?.series) return;
+  const container = dataTable;
+  container.innerHTML = '';
+
+  parsedGraph.series.forEach((ser, si) => {
+    const col = seriesPalette[si % seriesPalette.length];
+
+    // Series header with editable name
+    const header = document.createElement('div');
+    header.className = 'series-item';
+    header.style.marginBottom = '6px';
+    header.innerHTML = `<div class="series-dot" style="background:${col}"></div>`;
+    const nameInput = document.createElement('input');
+    nameInput.className = 'series-name-input';
+    nameInput.value = ser.name || 'Series ' + (si + 1);
+    nameInput.addEventListener('change', e => {
+      parsedGraph.series[si].name = e.target.value;
+      regenerateSvg();
+    });
+    header.appendChild(nameInput);
+    container.appendChild(header);
+
+    // Table
+    const wrap = document.createElement('div');
+    wrap.className = 'data-scroll';
+    const table = document.createElement('table');
+    table.className = 'data-table';
+    const detectedGtype = document.getElementById('graphType').value === 'auto'
+      ? (parsedGraph.graphType || 'line')
+      : document.getElementById('graphType').value;
+    const isBoxSer = detectedGtype === 'box' || ser.seriesType === 'box';
+    table.innerHTML = isBoxSer
+      ? '<thead><tr><th>label</th><th>wLow</th><th>Q1</th><th>median</th><th>Q3</th><th>wHigh</th><th></th></tr></thead>'
+      : '<thead><tr><th>x</th><th>y</th><th>↑ err</th><th>↓ err</th><th>±x</th><th></th></tr></thead>';
+    const tbody = document.createElement('tbody');
+
+    function renderRows() {
+      tbody.innerHTML = '';
+      (ser.points || []).forEach((p, pi) => {
+        const tr = document.createElement('tr');
+
+        const isBox = detectedGtype === 'box' || ser.seriesType === 'box';
+        const fields = isBox ? [
+          { key: 'label',      val: p.label },
+          { key: 'whiskerLow', val: p.whiskerLow },
+          { key: 'q1',         val: p.q1 },
+          { key: 'median',     val: p.median },
+          { key: 'q3',         val: p.q3 },
+          { key: 'whiskerHigh',val: p.whiskerHigh },
+        ] : [
+          { key: 'x',         val: p.x },
+          { key: 'y',         val: p.y },
+          { key: 'errorYUp',  val: p.errorYUp  ?? p.errorY ?? null },
+          { key: 'errorYDown',val: p.errorYDown ?? p.errorY ?? null },
+          { key: 'errorX',    val: p.errorX ?? null },
+        ];
+
+        fields.forEach(({ key, val }) => {
+          const td = document.createElement('td');
+          const inp = document.createElement('input');
+          inp.type = 'text';
+          inp.value = val != null ? fmt(val) : '';
+          inp.placeholder = '—';
+          const origVal = inp.value;
+          inp.addEventListener('input', () => {
+            inp.classList.toggle('changed', inp.value !== origVal);
+          });
+          inp.addEventListener('change', e => {
+            const raw = e.target.value.trim();
+            const isLabel = key === 'label';
+            const num = raw === '' || raw === '—' ? null : (isLabel ? raw : parseFloat(raw));
+            parsedGraph.series[si].points[pi][key] = num;
+            // Keep legacy errorY in sync
+            if(key === 'errorYUp' || key === 'errorYDown') {
+              parsedGraph.series[si].points[pi].errorY = null;
+            }
+            inp.classList.remove('changed');
+            regenerateSvg();
+          });
+          td.appendChild(inp);
+          tr.appendChild(td);
+        });
+
+        // Delete row button
+        const tdDel = document.createElement('td');
+        tdDel.className = 'row-actions';
+        const delBtn = document.createElement('button');
+        delBtn.className = 'btn-row-del';
+        delBtn.textContent = '×';
+        delBtn.title = 'Delete point';
+        delBtn.addEventListener('click', () => {
+          parsedGraph.series[si].points.splice(pi, 1);
+          renderRows();
+          regenerateSvg();
+        });
+        tdDel.appendChild(delBtn);
+        tr.appendChild(tdDel);
+        tbody.appendChild(tr);
+      });
+    }
+
+    renderRows();
+    table.appendChild(tbody);
+    wrap.appendChild(table);
+
+    // Add row button
+    const addBtn = document.createElement('button');
+    addBtn.className = 'btn-add-row';
+    addBtn.textContent = '+ Add point';
+    addBtn.addEventListener('click', () => {
+      const pts = parsedGraph.series[si].points;
+      const last = pts[pts.length - 1];
+      pts.push({ x: last ? last.x + 1 : 0, y: last ? last.y : 0, errorYUp: null, errorYDown: null, errorX: null });
+      renderRows();
+      regenerateSvg();
+    });
+
+    container.appendChild(wrap);
+    container.appendChild(addBtn);
+
+    const spacer = document.createElement('div');
+    spacer.style.height = '16px';
+    container.appendChild(spacer);
+  });
+}
+
+// ── Show output ───────────────────────────────────────────────────────────
+function showOutput() {
+  emptyOutput.style.display = 'none';
+  outputArea.style.display = 'flex';
+}
+
+// ── Downloads ─────────────────────────────────────────────────────────────
+downloadSvgBtn.addEventListener('click', () => {
+  const blob = new Blob([generatedSvg], {type:'image/svg+xml'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'graph.svg'; a.click();
+  URL.revokeObjectURL(url);
+});
+
+copyCodeBtn.addEventListener('click', () => {
+  navigator.clipboard.writeText(generatedSvg).then(() => {
+    const orig = copyCodeBtn.textContent;
+    copyCodeBtn.textContent = '✓ Copied!';
+    setTimeout(() => copyCodeBtn.textContent = orig, 1500);
+  });
+});
+
+downloadPngBtn.addEventListener('click', () => {
+  const scale = 2;
+  const parser = new DOMParser();
+  const doc = parser.parseFromString(generatedSvg, 'image/svg+xml');
+  const svg = doc.documentElement;
+  const w = parseInt(svg.getAttribute('width'));
+  const h = parseInt(svg.getAttribute('height'));
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w * scale; canvas.height = h * scale;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(scale, scale);
+
+  const img = new Image();
+  const blob = new Blob([generatedSvg], {type:'image/svg+xml'});
+  const url = URL.createObjectURL(blob);
+  img.onload = () => {
+    ctx.drawImage(img, 0, 0);
+    URL.revokeObjectURL(url);
+    const a = document.createElement('a');
+    a.href = canvas.toDataURL('image/png');
+    a.download = 'graph@2x.png'; a.click();
+  };
+  img.src = url;
+});
+</script>
+</body>
+</html>

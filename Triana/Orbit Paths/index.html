@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Hero Orbit</title>
+<style>
+  :root{
+    --bg-panel:#0e0f13;
+    --bg-panel-2:#000000;
+    --line:#24262d;
+    --text:#e8eaed;
+    --text-dim:#8b909a;
+    --accent:#ff2ea6;
+  }
+  * { box-sizing: border-box; }
+  html,body{
+    margin:0; height:100%;
+    background:var(--bg-panel-2);
+    color:var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  .app{ display:flex; height:100vh; width:100vw; overflow:hidden; }
+
+  .sidebar{
+    width: 320px; min-width:320px;
+    background: var(--bg-panel);
+    border-right: 1px solid var(--line);
+    display:flex; flex-direction:column;
+    overflow-y:auto;
+  }
+  .sidebar-head{ padding: 22px 20px 16px; border-bottom:1px solid var(--line); }
+  .sidebar-head .eyebrow{
+    font-size:10.5px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--accent); font-weight:600; margin-bottom:6px; font-family: 'SF Mono', ui-monospace, monospace;
+  }
+  .sidebar-head h1{ font-size:18px; margin:0 0 4px; font-weight:600; letter-spacing:-.01em; }
+  .sidebar-head p{ font-size:12.5px; color:var(--text-dim); margin:0; line-height:1.5; }
+
+  .section{ padding: 18px 20px; border-bottom:1px solid var(--line); }
+  .section h2{
+    font-size:11px; text-transform:uppercase; letter-spacing:.08em;
+    color:var(--text-dim); margin:0 0 12px; font-weight:600;
+  }
+
+  button{
+    font-family:inherit; font-size:13px; font-weight:600; cursor:pointer;
+    border-radius:7px; border:1px solid transparent; padding:10px 14px;
+    width:100%; transition: transform .08s ease, background .15s, border-color .15s;
+  }
+  button:active{ transform: scale(0.98); }
+  .btn-primary{ background:var(--accent); color:#180311; }
+  .btn-primary:hover{ background:#ff59ba; }
+  .btn-secondary{ background:transparent; color:var(--text); border-color:var(--line); }
+  .btn-secondary:hover{ border-color:var(--accent); color:var(--accent); }
+
+  label.field{ display:block; font-size:11.5px; color:var(--text-dim); margin: 14px 0 6px; }
+  label.field:first-child{ margin-top:0; }
+  input[type=range]{ width:100%; accent-color: var(--accent); background:transparent; }
+  .range-val{ float:right; color:var(--accent); font-family:ui-monospace,monospace; font-size:11px; }
+  input[type=number]{
+    width:100%; background:var(--bg-panel-2); border:1px solid var(--line); color:var(--text);
+    border-radius:6px; padding:8px 10px; font-family:inherit; font-size:13px;
+  }
+  .checkbox-row{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-dim); margin-top:12px; cursor:pointer; }
+  .checkbox-row input{ accent-color: var(--accent); }
+
+  .color-row{ display:flex; align-items:center; gap:10px; margin-top:2px; }
+  .color-row input[type=color]{
+    width:40px; height:36px; border-radius:7px; border:1px solid var(--line); background:none; cursor:pointer; padding:2px;
+  }
+  .color-row span{ font-size:12px; color:var(--text-dim); font-family:ui-monospace,monospace; }
+
+  .hint{ font-size:11.5px; color:var(--text-dim); line-height:1.6; margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
+  .hint b{ color:var(--text); }
+  .footer-space{ flex:1; }
+  .progress-line{ font-size:11px; color:var(--accent); font-family:ui-monospace,monospace; margin-top:10px; min-height:14px; }
+
+  .canvas-wrap{
+    flex:1; position:relative; display:flex; align-items:center; justify-content:center;
+    background: #050506; overflow:hidden; padding: 40px;
+    background-image:
+      linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .stage-card{
+    width: 100%; max-width: 1100px; aspect-ratio: 1600/600;
+    box-shadow: 0 20px 70px -10px rgba(255,46,166,.12), 0 0 0 1px rgba(255,255,255,.08);
+    border-radius: 10px; overflow:hidden; position:relative;
+  }
+  #stage{ display:block; width:100%; height:100%; }
+  .top-badge{
+    position:absolute; top:14px; left:14px; font-family:ui-monospace,monospace;
+    font-size:11px; color:#ffffff99; background:#ffffff14; border:1px solid #ffffff1a;
+    padding:6px 10px; border-radius:20px; backdrop-filter: blur(4px);
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-head">
+      <div class="eyebrow">Reciprocal Space</div>
+      <h1>Hero Orbit</h1>
+      <p>A real 3D perspective view from inside a cluster of tilted rings, with dots making full orbits around them — a seamlessly loopable hero-section animation.</p>
+    </div>
+
+    <div class="section">
+      <h2>View</h2>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-primary" id="btn-view-perspective">Perspective</button>
+        <button class="btn-secondary" id="btn-view-flat">Flat</button>
+      </div>
+      <div style="display:flex; gap:8px; margin-top:8px;">
+        <button class="btn-secondary" id="btn-view-merge" style="width:100%;">Merge</button>
+      </div>
+      <div class="hint" style="margin-top:10px; padding-top:0; border-top:none;">
+        <b>Perspective</b> is the immersive view from inside the ring
+        cluster — each dot is hidden for the half of its orbit that falls
+        behind you. <b>Flat</b> steps back to a straight-on view of four
+        concentric circles, so every ring and every dot's full orbit stays
+        visible the whole time. <b>Merge</b> is three orbits that drift
+        together into one shared orbit carrying all three spheres, then
+        drift back apart — looping seamlessly.
+      </div>
+    </div>
+
+    <div class="section" id="section-layout" style="display:none;">
+      <h2>Layout</h2>
+      <label class="field" style="margin-top:0;">Orbit size <span class="range-val" id="val-flat-size">65</span></label>
+      <input type="range" id="rng-flat-size" min="20" max="90" value="65">
+
+      <label class="field">Ring spacing <span class="range-val" id="val-flat-spacing">15</span></label>
+      <input type="range" id="rng-flat-spacing" min="2" max="30" value="15">
+
+      <label class="field">Line width taper <span class="range-val" id="val-flat-taper">0</span></label>
+      <input type="range" id="rng-flat-taper" min="-100" max="100" value="0">
+      <div class="hint" style="margin-top:10px; padding-top:0; border-top:none;">
+        <b>Orbit size</b> sets how big the outermost circle is.
+        <b>Ring spacing</b> sets the gap between each concentric circle.
+        <b>Line width taper</b> tapers thickness across the rings —
+        negative thins them going outward, positive thickens them going
+        outward, 0 keeps them all the same width.
+      </div>
+    </div>
+
+    <div class="section" id="section-merge" style="display:none;">
+      <h2>Merge</h2>
+      <label class="field" style="margin-top:0;">Cycle length (orbits) <span class="range-val" id="val-merge-cycles">4</span></label>
+      <input type="range" id="rng-merge-cycles" min="1" max="10" value="4">
+      <div class="hint" style="margin-top:10px; padding-top:0; border-top:none;">
+        How many orbit rotations one full drift-together-and-apart cycle
+        takes. Tied to <b>Orbit speed</b>, so it always lands back on its
+        starting spread exactly once per cycle — that's what keeps it
+        loopable.
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Colors</h2>
+      <label class="field" style="margin-top:0;">Top outer line</label>
+      <div class="color-row">
+        <input type="color" id="col-line-0" value="#aab0bd">
+        <span id="val-col-line-0">#AAB0BD</span>
+      </div>
+      <label class="field">Top inner line</label>
+      <div class="color-row">
+        <input type="color" id="col-line-1" value="#aab0bd">
+        <span id="val-col-line-1">#AAB0BD</span>
+      </div>
+      <label class="field">Bottom inner line</label>
+      <div class="color-row">
+        <input type="color" id="col-line-2" value="#aab0bd">
+        <span id="val-col-line-2">#AAB0BD</span>
+      </div>
+      <label class="field">Bottom outer line</label>
+      <div class="color-row">
+        <input type="color" id="col-line-3" value="#aab0bd">
+        <span id="val-col-line-3">#AAB0BD</span>
+      </div>
+      <label class="field">Top outer dot</label>
+      <div class="color-row">
+        <input type="color" id="col-dot-0" value="#ff2ea6">
+        <span id="val-col-dot-0">#FF2EA6</span>
+      </div>
+      <label class="field">Top inner dot</label>
+      <div class="color-row">
+        <input type="color" id="col-dot-1" value="#ff2ea6">
+        <span id="val-col-dot-1">#FF2EA6</span>
+      </div>
+      <label class="field">Bottom inner dot</label>
+      <div class="color-row">
+        <input type="color" id="col-dot-2" value="#ff2ea6">
+        <span id="val-col-dot-2">#FF2EA6</span>
+      </div>
+      <label class="field">Bottom outer dot</label>
+      <div class="color-row">
+        <input type="color" id="col-dot-3" value="#ff2ea6">
+        <span id="val-col-dot-3">#FF2EA6</span>
+      </div>
+      <label class="checkbox-row">
+        <input type="checkbox" id="chk-bg" checked>
+        Solid background
+      </label>
+      <div class="color-row" id="row-col-bg" style="margin-top:8px;">
+        <input type="color" id="col-bg" value="#050506">
+        <span id="val-col-bg">#050506</span>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Motion</h2>
+      <label class="field" style="margin-top:0;">Orbit speed <span class="range-val" id="val-speed">1.0x</span></label>
+      <input type="range" id="rng-speed" min="20" max="300" value="100">
+
+      <label class="field">Line thickness <span class="range-val" id="val-thickness">2.0</span></label>
+      <input type="range" id="rng-thickness" min="10" max="60" value="20">
+
+      <label class="field">Dot size <span class="range-val" id="val-dotsize">7</span></label>
+      <input type="range" id="rng-dotsize" min="3" max="16" value="7">
+
+      <div id="row-dotcount">
+        <label class="field">Dot count <span class="range-val" id="val-dotcount">3</span></label>
+        <input type="range" id="rng-dotcount" min="1" max="16" value="3">
+      </div>
+
+      <label class="checkbox-row">
+        <input type="checkbox" id="chk-glow" checked>
+        Dot glow
+      </label>
+    </div>
+
+    <div class="section">
+      <h2>Export</h2>
+      <label class="field" style="margin-top:0;">Loops to export</label>
+      <input type="number" id="num-loops" min="1" max="10" value="2">
+      <label class="field">Resolution</label>
+      <div style="display:flex; gap:8px;">
+        <button class="btn-primary" id="btn-res-1x">1600×600</button>
+        <button class="btn-secondary" id="btn-res-2x">3200×1200</button>
+      </div>
+      <button class="btn-secondary" id="btn-export-video" style="margin-top:14px;">Export video (.mp4)</button>
+      <div class="hint" style="margin-top:4px; padding-top:0; border-top:none;">
+        Records the live animation with Chrome/Edge's own built-in
+        <b>MediaRecorder</b> — no external encoder. One "loop" is exactly
+        one period of the orbit motion, so the exported clip always ends
+        back where it started and plays seamlessly on repeat. Needs Chrome
+        or Edge.
+      </div>
+      <div class="progress-line" id="progress"></div>
+    </div>
+
+    <div class="footer-space"></div>
+    <div class="section" style="border-bottom:none;">
+      <div class="hint">
+        Each dot makes a full 360° orbit of its own ring on a shared
+        timing — it's simply not drawn while behind the camera's near
+        clip plane — so the whole scene returns to its exact starting
+        state once per orbit period — that's what makes it loop cleanly
+        both on screen and in the exported MP4.
+      </div>
+    </div>
+  </div>
+
+  <div class="canvas-wrap">
+    <div class="top-badge" id="badge">1600×600 · live</div>
+    <div class="stage-card">
+      <canvas id="stage" width="1600" height="600"></canvas>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const W = 1600, H = 600;
+
+  // ====================== 3D RING DEFINITIONS ======================
+  // The camera sits at the shared center of a cluster of circular rings —
+  // literally at the origin, looking down +Z — with each ring's plane
+  // tilted by `theta` off the view axis. Because the camera isn't exactly
+  // IN the ring's plane, the ring projects to a real curve rather than a
+  // degenerate straight line: the half of the ring in front of the camera
+  // (z > NEAR_Z) sweeps across the screen — close to the camera (and
+  // therefore flung out toward the screen edges) near phi=0/pi, and at
+  // its farthest (dead ahead) around phi=pi/2 — which is exactly the
+  // "nearly straight far out, pinches near the middle" look, except now
+  // it's real perspective, not an arbitrary formula. The other half of
+  // the ring (z <= NEAR_Z) is literally behind the viewer and is never
+  // drawn — see the dot-orbit section below for why that matters.
+  //
+  // point(phi) = ( R*cos(phi), Yc + R*sin(phi)*cos(theta), R*sin(phi)*sin(theta) )
+  //
+  // Naively, Yc alone barely moves where the curve's near-center "waist"
+  // sits on screen — at phi=pi/2 the R*cos(theta) term dominates and
+  // throws the whole ring far off-canvas. So instead of hand-picking Yc,
+  // each ring is specified by `waistPx` (how many pixels its waist sits
+  // from vertical screen-center, at the design resolution) and Yc is
+  // solved backwards from that: it cancels R*cos(theta) exactly at
+  // phi=pi/2, leaving only the requested pixel offset there, while still
+  // letting the curve flare out asymptotically toward the edges.
+  const FOCAL_FACTOR = 1.2;
+  // `flip` swaps theta for (pi - theta): cos flips sign while sin (and
+  // therefore depth/visibility) stays identical, mirroring the curve from
+  // bowing above center to bowing below it — a top/bottom pair otherwise
+  // sharing the same tilt and waist gap.
+  function ringFromWaist(R, theta, waistPx, flip){
+    const t = flip ? Math.PI - theta : theta;
+    const focal = H * FOCAL_FACTOR; // baked in at design resolution — see project() for why this still scales correctly at other export sizes
+    const farZ = R * Math.sin(t);
+    // Sign of eps has to flip along with theta: a non-flipped ring already
+    // bows away from center toward the top at its edges (cos(t) > 0), so a
+    // small negative eps keeps its waist just above center too; a flipped
+    // ring bows toward the bottom (cos(t) < 0) and needs the mirror-image
+    // positive eps to keep its own waist just below center.
+    const eps = (flip ? 1 : -1) * waistPx * farZ / focal;
+    return { R, theta: t, Yc: -R * Math.cos(t) + eps };
+  }
+  const RINGS = [
+    ringFromWaist(1, 0.62, 80, false), // top outer
+    ringFromWaist(1, 0.30, 18, false), // top inner
+    ringFromWaist(1, 0.30, 18, true),  // bottom inner
+    ringFromWaist(1, 0.62, 80, true),  // bottom outer
+  ];
+  const NEAR_Z = 0.09; // camera-space clip plane — anything behind this is "not visible"
+  function ringPoint3D(ring, phi){
+    const s = Math.sin(phi);
+    return {
+      x: ring.R * Math.cos(phi),
+      y: ring.Yc + ring.R * s * Math.cos(ring.theta),
+      z: ring.R * s * Math.sin(ring.theta),
+    };
+  }
+
+  // Pinhole projection: camera at the origin looking down +Z. Focal length
+  // is proportional to canvas height, same as in ringFromWaist above, so
+  // the field of view (and every waistPx offset) looks identical at any
+  // export resolution. Returns null for anything at/behind the near clip
+  // plane.
+  function project(pt3d, cw, ch){
+    if(pt3d.z <= NEAR_Z) return null;
+    const focal = ch * FOCAL_FACTOR;
+    return {
+      x: cw/2 + focal * pt3d.x / pt3d.z,
+      y: ch/2 + focal * pt3d.y / pt3d.z,
+      z: pt3d.z,
+    };
+  }
+
+  // ====================== ORBITING DOTS ======================
+  // phi(t) sweeps the FULL 0..2*pi circle once per PERIOD, continuously in
+  // one direction — a real orbit, not a back-and-forth swing. Every dot
+  // shares the same PERIOD (only phase/ring differ), so the whole scene is
+  // exactly back to its starting state every PERIOD seconds. Half of every
+  // orbit falls behind the camera's near clip plane — the dot is simply
+  // not drawn while it's back there (see renderFrame), but phi keeps
+  // advancing regardless, so it's still genuinely orbiting the whole ring.
+  const BASE_PERIOD = 6; // seconds, at 1.0x speed
+  // Dots are distributed round-robin across the 4 rings and spread evenly
+  // around the full circle, so any count from 1 to 16 stays symmetric
+  // rather than clumping on one ring.
+  function buildDots(count){
+    const dots = [];
+    for(let i=0; i<count; i++){
+      dots.push({ ring: i % RINGS.length, phase: (Math.PI * 2 * i) / count });
+    }
+    return dots;
+  }
+  let DOTS = buildDots(3);
+
+  // ====================== FLAT VIEW ======================
+  // A straight-on, outside view of the same 4 rings and dots — no camera,
+  // no near-clip half-hidden behind you. Each ring becomes a plain circle
+  // centered on the canvas; dots orbit their own circle at the same
+  // phi(t) used by the perspective view, always visible, full size, full
+  // brightness — "so you can see the concentric circles and the dots
+  // revolving around them" without anything ever hiding behind the
+  // camera.
+  //
+  // Ring i's radius (as a fraction of min(cw,ch)/2) is
+  // flatOrbitSize - i*flatSpacing, so ring 0 is always the outermost —
+  // both adjustable live via the Flat Layout sliders. Clamped to a small
+  // positive floor so an aggressive spacing can't push an inner ring to
+  // (or past) zero/negative radius.
+  function flatRadii(){
+    return RINGS.map((_, i) => Math.max(0.02, flatOrbitSize - i * flatSpacing));
+  }
+
+  // ====================== STATE ======================
+  let viewMode = 'perspective'; // 'perspective' | 'flat' | 'merge'
+  let flatOrbitSize = 0.65; // fraction of min(cw,ch)/2 — outermost ring's radius
+  let flatSpacing = 0.15;   // fraction of min(cw,ch)/2 — gap between consecutive rings
+  let flatWidthTaper = 0;   // -1..1 — negative thins outer rings, positive thickens them, 0 = uniform
+  let mergeCycles = 4;      // orbit rotations per full drift-together-and-apart cycle, for the Merge view
+  let lineColors = ['#aab0bd', '#aab0bd', '#aab0bd', '#aab0bd']; // one per RINGS index
+  let dotColors = ['#ff2ea6', '#ff2ea6', '#ff2ea6', '#ff2ea6']; // one per RINGS index — a dot takes its color from the ring it orbits
+  let bgColor = '#050506';
+  let bgEnabled = true;
+  let speedMult = 1.0;
+  let thickness = 2.0;
+  let dotRadius = 7;
+  let glowEnabled = true;
+
+  function period(){ return BASE_PERIOD / speedMult; }
+
+  const canvas = document.getElementById('stage');
+  const ctx = canvas.getContext('2d');
+
+  function clamp01(v){ return Math.max(0, Math.min(1, v)); }
+  function lerp(a, b, t){ return a + (b-a)*t; }
+
+  // Renders one deterministic frame at elapsed time `tSec` (seconds since
+  // the orbit's own t=0) into the given context/canvas size — used both by
+  // the live rAF loop and by the video exporter, so preview and export are
+  // pixel-for-pixel the same math. Dispatches on viewMode; all three
+  // branches share every other control (colors, thickness, dot size/
+  // count, speed, glow) — only the geometry changes.
+  function renderFrame(g, cw, ch, tSec){
+    g.save();
+    g.clearRect(0, 0, cw, ch);
+    if(bgEnabled){
+      g.fillStyle = bgColor;
+      g.fillRect(0, 0, cw, ch);
+    }
+    if(viewMode === 'flat') renderFlat(g, cw, ch, tSec);
+    else if(viewMode === 'merge') renderMerge(g, cw, ch, tSec);
+    else renderPerspective(g, cw, ch, tSec);
+    g.restore();
+  }
+
+  // The Merge view's own loop length differs from the other views': its
+  // drift-together-and-apart breathing has a period of mergeCycles full
+  // orbit rotations, not just one. Used by the video exporter so a
+  // recorded "loop" actually covers the whole breathing cycle.
+  function loopDurationSeconds(){
+    return viewMode === 'merge' ? mergeCycles * period() : period();
+  }
+
+  function renderPerspective(g, cw, ch, tSec){
+    g.lineCap = 'round';
+    const STEPS = 400;
+    RINGS.forEach((ring, ringIdx) => {
+      const rgb = hexToRgb(lineColors[ringIdx]);
+      // The ring's own farthest reach (straight ahead, phi = pi/2) — used
+      // to normalize its near/far depth fade independent of the other
+      // rings' tilt.
+      const farZ = Math.max(NEAR_Z * 1.5, ring.R * Math.sin(ring.theta));
+      let prevProj = null;
+      for(let i=0; i<=STEPS; i++){
+        const phi = (i/STEPS) * Math.PI * 2;
+        const pt3d = ringPoint3D(ring, phi);
+        const proj = project(pt3d, cw, ch);
+        if(proj && prevProj){
+          // depth: 0 = right at the camera (near clip, flung to the
+          // screen edges), 1 = dead ahead at this ring's farthest point
+          // (the "waist" near screen-center) — near is drawn bold and
+          // bright, far fades away, the opposite of a flat edge fade, so
+          // the scene actually reads as receding in front of you.
+          const depth = clamp01((proj.z - NEAR_Z) / (farZ - NEAR_Z));
+          g.strokeStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${lerp(0.95, 0.22, depth)})`;
+          g.lineWidth = lerp(thickness * 1.7, thickness * 0.5, depth);
+          g.beginPath();
+          g.moveTo(prevProj.x, prevProj.y);
+          g.lineTo(proj.x, proj.y);
+          g.stroke();
+        }
+        prevProj = proj;
+      }
+    });
+
+    // dots — phi sweeps the full circle every period; only the half in
+    // front of the camera is ever drawn, but it keeps orbiting regardless.
+    const t = tSec / period();
+    const FADE_Z = NEAR_Z * 3.2; // soft near-clip fade so a dot eases out of view rather than popping off
+    const REF_Z = 0.32; // a representative "close" depth, for perspective size scaling
+    DOTS.forEach(dot => {
+      const ring = RINGS[dot.ring];
+      const dc = dotColors[dot.ring];
+      const phi = Math.PI * 2 * t + dot.phase;
+      const pt3d = ringPoint3D(ring, phi);
+      const proj = project(pt3d, cw, ch);
+      if(!proj) return; // behind the camera right now — still orbiting, just not drawn
+      const fade = clamp01((proj.z - NEAR_Z) / (FADE_Z - NEAR_Z));
+      if(fade <= 0) return;
+      const scale = Math.max(0.35, Math.min(2.4, REF_Z / proj.z));
+      const r = dotRadius * scale;
+      if(glowEnabled){
+        g.shadowColor = dc;
+        g.shadowBlur = r * 3.2 * fade;
+      } else {
+        g.shadowBlur = 0;
+      }
+      g.globalAlpha = fade;
+      g.fillStyle = dc;
+      g.beginPath();
+      g.arc(proj.x, proj.y, r, 0, Math.PI*2);
+      g.fill();
+      g.shadowBlur = 0;
+      g.globalAlpha = 1;
+    });
+  }
+
+  // Flat view: 4 plain concentric circles centered on the canvas, sized
+  // by flatRadii() (fractions of the canvas's shorter side, adjustable
+  // via the Flat Layout sliders). Dots orbit at the same phi(t) as the
+  // perspective view — same speed, same phase spacing, same loop period
+  // — just always drawn, since there's no camera here for anything to
+  // hide behind.
+  function renderFlat(g, cw, ch, tSec){
+    const cx = cw / 2, cy = ch / 2;
+    const baseRadius = Math.min(cw, ch) / 2;
+    const radii = flatRadii();
+    g.lineCap = 'round';
+    RINGS.forEach((_, ringIdx) => {
+      const rgb = hexToRgb(lineColors[ringIdx]);
+      const radius = radii[ringIdx] * baseRadius;
+      // Taper: ring 0 is outermost, so u=1 there and u=0 at the
+      // innermost ring — width scales linearly across that range, with
+      // flatWidthTaper (-1..1) controlling how much and in which
+      // direction, clamped so an extreme taper never zeroes out a line.
+      const u = (RINGS.length - 1 - ringIdx) / (RINGS.length - 1);
+      const widthMult = Math.max(0.15, 1 + flatWidthTaper * (u - 0.5) * 2);
+      g.strokeStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.9)`;
+      g.lineWidth = thickness * widthMult;
+      g.beginPath();
+      g.arc(cx, cy, radius, 0, Math.PI * 2);
+      g.stroke();
+    });
+
+    const t = tSec / period();
+    DOTS.forEach(dot => {
+      const dc = dotColors[dot.ring];
+      const radius = radii[dot.ring] * baseRadius;
+      const phi = Math.PI * 2 * t + dot.phase;
+      const x = cx + radius * Math.cos(phi);
+      const y = cy + radius * Math.sin(phi);
+      if(glowEnabled){
+        g.shadowColor = dc;
+        g.shadowBlur = dotRadius * 3.2;
+      } else {
+        g.shadowBlur = 0;
+      }
+      g.fillStyle = dc;
+      g.beginPath();
+      g.arc(x, y, dotRadius, 0, Math.PI * 2);
+      g.fill();
+      g.shadowBlur = 0;
+    });
+  }
+
+  // Merge view: three orbits (rings 0, 1, 2 — reusing the same Orbit
+  // size/Ring spacing sliders as Flat, so "spread" here means the same
+  // three outermost radii Flat would show), each carrying exactly one
+  // dot, 120 degrees apart. Every ring's CURRENT radius drifts toward a
+  // shared meeting radius (ring 1's own spread radius — the natural
+  // middle value) and back, on mergeFactor(t): a raised-cosine that's
+  // exactly 0 at t=0, peaks at 1 halfway through the cycle (fully
+  // merged — all three dots now 120 degrees apart on one shared orbit),
+  // and returns to exactly 0 at t=mergeCycles*period(). Because that's a
+  // whole multiple of the rotation period, the dots' angular phase lines
+  // up again too, so the entire scene is back to its exact starting
+  // state — a real loop, not an approximation.
+  function renderMerge(g, cw, ch, tSec){
+    const cx = cw / 2, cy = ch / 2;
+    const baseRadius = Math.min(cw, ch) / 2;
+    const spread = [0, 1, 2].map(i => Math.max(0.02, flatOrbitSize - i * flatSpacing));
+    const mergedFrac = spread[1];
+    const cycleSeconds = mergeCycles * period();
+    const mergeFactor = (1 - Math.cos(2 * Math.PI * tSec / cycleSeconds)) / 2; // 0 -> 1 -> 0
+    const radiiFrac = spread.map(s => lerp(s, mergedFrac, mergeFactor));
+
+    g.lineCap = 'round';
+    [0, 1, 2].forEach(ringIdx => {
+      const rgb = hexToRgb(lineColors[ringIdx]);
+      const radius = radiiFrac[ringIdx] * baseRadius;
+      const u = (2 - ringIdx) / 2; // 1 = outermost (ring 0), 0 = innermost (ring 2), matching Flat's taper direction
+      const widthMult = Math.max(0.15, 1 + flatWidthTaper * (u - 0.5) * 2);
+      g.strokeStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.9)`;
+      g.lineWidth = thickness * widthMult;
+      g.beginPath();
+      g.arc(cx, cy, radius, 0, Math.PI * 2);
+      g.stroke();
+    });
+
+    const t = tSec / period();
+    [0, 1, 2].forEach(ringIdx => {
+      const dc = dotColors[ringIdx];
+      const radius = radiiFrac[ringIdx] * baseRadius;
+      const phi = Math.PI * 2 * t + (Math.PI * 2 * ringIdx) / 3;
+      const x = cx + radius * Math.cos(phi);
+      const y = cy + radius * Math.sin(phi);
+      if(glowEnabled){
+        g.shadowColor = dc;
+        g.shadowBlur = dotRadius * 3.2;
+      } else {
+        g.shadowBlur = 0;
+      }
+      g.fillStyle = dc;
+      g.beginPath();
+      g.arc(x, y, dotRadius, 0, Math.PI * 2);
+      g.fill();
+      g.shadowBlur = 0;
+    });
+  }
+
+  function hexToRgb(hex){
+    hex = hex.replace('#','');
+    return [parseInt(hex.substr(0,2),16), parseInt(hex.substr(2,2),16), parseInt(hex.substr(4,2),16)];
+  }
+
+  // ====================== LIVE LOOP ======================
+  let startTime = performance.now();
+  function tick(now){
+    const tSec = (now - startTime) / 1000;
+    renderFrame(ctx, canvas.width, canvas.height, tSec);
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+
+  // ====================== CONTROLS ======================
+  const elColLines = RINGS.map((_, i) => document.getElementById('col-line-' + i));
+  const elColDots = RINGS.map((_, i) => document.getElementById('col-dot-' + i));
+  const elColBg = document.getElementById('col-bg');
+  const elChkBg = document.getElementById('chk-bg');
+  const elRowColBg = document.getElementById('row-col-bg');
+  const elRngSpeed = document.getElementById('rng-speed');
+  const elRngThickness = document.getElementById('rng-thickness');
+  const elRngDotSize = document.getElementById('rng-dotsize');
+  const elRngDotCount = document.getElementById('rng-dotcount');
+  const elChkGlow = document.getElementById('chk-glow');
+
+  elColLines.forEach((el, i) => {
+    el.addEventListener('input', () => {
+      lineColors[i] = el.value;
+      document.getElementById('val-col-line-' + i).textContent = el.value.toUpperCase();
+    });
+  });
+  elColDots.forEach((el, i) => {
+    el.addEventListener('input', () => {
+      dotColors[i] = el.value;
+      document.getElementById('val-col-dot-' + i).textContent = el.value.toUpperCase();
+    });
+  });
+  elColBg.addEventListener('input', () => {
+    bgColor = elColBg.value;
+    document.getElementById('val-col-bg').textContent = bgColor.toUpperCase();
+  });
+  elChkBg.addEventListener('change', () => {
+    bgEnabled = elChkBg.checked;
+    elRowColBg.style.opacity = bgEnabled ? '1' : '0.4';
+    elColBg.disabled = !bgEnabled;
+  });
+  elRngSpeed.addEventListener('input', () => {
+    speedMult = parseInt(elRngSpeed.value) / 100;
+    document.getElementById('val-speed').textContent = speedMult.toFixed(2) + 'x';
+  });
+  elRngThickness.addEventListener('input', () => {
+    thickness = parseInt(elRngThickness.value) / 10;
+    document.getElementById('val-thickness').textContent = thickness.toFixed(1);
+  });
+  elRngDotSize.addEventListener('input', () => {
+    dotRadius = parseInt(elRngDotSize.value);
+    document.getElementById('val-dotsize').textContent = dotRadius;
+  });
+  elRngDotCount.addEventListener('input', () => {
+    const count = parseInt(elRngDotCount.value);
+    document.getElementById('val-dotcount').textContent = count;
+    DOTS = buildDots(count);
+  });
+  elChkGlow.addEventListener('change', () => { glowEnabled = elChkGlow.checked; });
+
+  const btnViewPerspective = document.getElementById('btn-view-perspective');
+  const btnViewFlat = document.getElementById('btn-view-flat');
+  const btnViewMerge = document.getElementById('btn-view-merge');
+  const sectionLayout = document.getElementById('section-layout');
+  const sectionMerge = document.getElementById('section-merge');
+  const rowDotCount = document.getElementById('row-dotcount');
+  function setViewMode(mode){
+    viewMode = mode;
+    btnViewPerspective.className = mode === 'perspective' ? 'btn-primary' : 'btn-secondary';
+    btnViewFlat.className = mode === 'flat' ? 'btn-primary' : 'btn-secondary';
+    btnViewMerge.className = mode === 'merge' ? 'btn-primary' : 'btn-secondary';
+    sectionLayout.style.display = (mode === 'flat' || mode === 'merge') ? '' : 'none';
+    sectionMerge.style.display = mode === 'merge' ? '' : 'none';
+    rowDotCount.style.display = mode === 'merge' ? 'none' : ''; // Merge always uses exactly 3 dots, one per orbit
+  }
+  btnViewPerspective.addEventListener('click', () => setViewMode('perspective'));
+  btnViewFlat.addEventListener('click', () => setViewMode('flat'));
+  btnViewMerge.addEventListener('click', () => setViewMode('merge'));
+
+  const elRngMergeCycles = document.getElementById('rng-merge-cycles');
+  elRngMergeCycles.addEventListener('input', () => {
+    mergeCycles = parseInt(elRngMergeCycles.value);
+    document.getElementById('val-merge-cycles').textContent = mergeCycles;
+  });
+
+  const elRngFlatSize = document.getElementById('rng-flat-size');
+  const elRngFlatSpacing = document.getElementById('rng-flat-spacing');
+  const elRngFlatTaper = document.getElementById('rng-flat-taper');
+  elRngFlatSize.addEventListener('input', () => {
+    flatOrbitSize = parseInt(elRngFlatSize.value) / 100;
+    document.getElementById('val-flat-size').textContent = elRngFlatSize.value;
+  });
+  elRngFlatSpacing.addEventListener('input', () => {
+    flatSpacing = parseInt(elRngFlatSpacing.value) / 100;
+    document.getElementById('val-flat-spacing').textContent = elRngFlatSpacing.value;
+  });
+  elRngFlatTaper.addEventListener('input', () => {
+    flatWidthTaper = parseInt(elRngFlatTaper.value) / 100;
+    document.getElementById('val-flat-taper').textContent = elRngFlatTaper.value;
+  });
+
+  let exportScale = 1;
+  const btnRes1x = document.getElementById('btn-res-1x');
+  const btnRes2x = document.getElementById('btn-res-2x');
+  function setResScale(scale){
+    exportScale = scale;
+    btnRes1x.className = scale === 1 ? 'btn-primary' : 'btn-secondary';
+    btnRes2x.className = scale === 2 ? 'btn-primary' : 'btn-secondary';
+    document.getElementById('badge').textContent = `${W*exportScale}×${H*exportScale} export · live preview`;
+  }
+  btnRes1x.addEventListener('click', () => setResScale(1));
+  btnRes2x.addEventListener('click', () => setResScale(2));
+
+  // ====================== VIDEO EXPORT ======================
+  // Same technique as Flow Weave's own exporter: canvas.captureStream() +
+  // MediaRecorder, using Chrome/Edge's native MP4 muxing (no external
+  // library). Frames are drawn on a fixed real-time cadence (MediaRecorder
+  // has no notion of "this frame belongs at time X"), but because the
+  // scene's own motion is a pure function of tSec with period `period()`,
+  // recording for exactly N * period() seconds always lands back on frame
+  // 0's state — the clip loops with no visible seam.
+  const VIDEO_FPS = 30;
+  const VIDEO_BITRATE = 20_000_000;
+  const VIDEO_MIME_CANDIDATES = ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4'];
+
+  class VideoExportCancelled extends Error {}
+  let videoExportInProgress = false;
+  let videoExportCancelRequested = false;
+
+  document.getElementById('btn-export-video').addEventListener('click', async () => {
+    const progress = document.getElementById('progress');
+    const btn = document.getElementById('btn-export-video');
+
+    if(videoExportInProgress){
+      videoExportCancelRequested = true;
+      btn.textContent = 'Cancelling…';
+      btn.disabled = true;
+      return;
+    }
+
+    if(typeof MediaRecorder === 'undefined' || !HTMLCanvasElement.prototype.captureStream){
+      progress.textContent = 'Video export needs a browser with MediaRecorder + canvas.captureStream support (Chrome or Edge).';
+      setTimeout(()=>{ progress.textContent=''; }, 4500);
+      return;
+    }
+    const mimeType = VIDEO_MIME_CANDIDATES.find(m => MediaRecorder.isTypeSupported(m));
+    if(!mimeType){
+      progress.textContent = 'MP4 recording needs Chrome or Edge — this browser doesn\'t support it.';
+      setTimeout(()=>{ progress.textContent=''; }, 4500);
+      return;
+    }
+
+    const originalLabel = btn.textContent;
+    videoExportInProgress = true;
+    videoExportCancelRequested = false;
+    btn.textContent = 'Cancel export';
+    let exportCanvas;
+
+    try{
+      const loops = Math.max(1, Math.min(10, parseInt(document.getElementById('num-loops').value) || 1));
+      const loopSeconds = loopDurationSeconds();
+      const totalSeconds = loopSeconds * loops;
+      const outW = W * exportScale, outH = H * exportScale;
+
+      exportCanvas = document.createElement('canvas');
+      exportCanvas.width = outW; exportCanvas.height = outH;
+      // Kept in the layout (off-screen, not display:none) — some browsers
+      // only paint, and therefore only feed real frames into
+      // captureStream(), for a canvas that's part of the rendered document.
+      exportCanvas.style.cssText = 'position:fixed;left:-99999px;top:0;';
+      document.body.appendChild(exportCanvas);
+      const ectx = exportCanvas.getContext('2d');
+      ectx.imageSmoothingEnabled = true;
+      ectx.imageSmoothingQuality = 'high';
+
+      const stream = exportCanvas.captureStream(VIDEO_FPS);
+      const [videoTrack] = stream.getVideoTracks();
+      const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: VIDEO_BITRATE });
+      const chunks = [];
+      recorder.ondataavailable = (e) => { if(e.data && e.data.size) chunks.push(e.data); };
+      const stopped = new Promise((resolve) => { recorder.onstop = resolve; });
+
+      recorder.start();
+      const totalMs = totalSeconds * 1000;
+      const frameInterval = 1000 / VIDEO_FPS;
+      const startT = performance.now();
+      let nextDrawTime = startT;
+      let framesDrawn = 0;
+      let cancelled = false;
+      while(true){
+        if(videoExportCancelRequested){ cancelled = true; break; }
+        const now = performance.now();
+        const elapsed = now - startT;
+        if(elapsed >= totalMs) break;
+        if(now < nextDrawTime){
+          await new Promise(r => setTimeout(r, Math.min(nextDrawTime - now, 50)));
+          continue;
+        }
+        // deterministic frame time, not wall-clock elapsed — guarantees
+        // the last frame lands exactly at loops*loopSeconds, not
+        // wherever real-time pacing happened to drift to.
+        const frameTSec = Math.min(elapsed, totalMs) / 1000;
+        renderFrame(ectx, outW, outH, frameTSec);
+        videoTrack.requestFrame();
+        framesDrawn++;
+        nextDrawTime += frameInterval;
+        progress.textContent = `Recording video: ${(elapsed/1000).toFixed(1)}s / ${totalSeconds.toFixed(1)}s…`;
+        await new Promise(r => setTimeout(r, 0));
+      }
+      recorder.stop();
+      await stopped;
+      if(cancelled) throw new VideoExportCancelled();
+
+      const blob = new Blob(chunks, { type: mimeType });
+      // Some browser/GPU combinations silently produce an empty recording
+      // at larger resolutions (the encoder never emits a chunk, with no
+      // error event) — fail loudly instead of downloading a broken 0-byte
+      // file.
+      if(blob.size === 0){
+        throw new Error('The recording came out empty — this browser/GPU could not encode MP4 at this resolution. Try the 1600×600 export size, or a different Chrome/Edge build.');
+      }
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'hero_orbit.mp4';
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      const avgFps = (framesDrawn / totalSeconds).toFixed(1);
+      progress.textContent = `Done — ${loops} loop${loops>1?'s':''} exported (~${avgFps}fps).`;
+      setTimeout(()=>{ progress.textContent=''; }, 4000);
+    } catch(err){
+      if(err instanceof VideoExportCancelled){
+        progress.textContent = 'Export cancelled.';
+        setTimeout(()=>{ progress.textContent=''; }, 3000);
+      } else {
+        progress.textContent = 'Video export failed: ' + (err && err.message ? err.message : err);
+      }
+    } finally {
+      if(exportCanvas && exportCanvas.parentNode) exportCanvas.parentNode.removeChild(exportCanvas);
+      videoExportInProgress = false;
+      videoExportCancelRequested = false;
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+    }
+  });
+
+  setResScale(1);
+})();
+</script>
+</body>
+</html>

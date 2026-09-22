@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PNG/JPEG → WebP Converter</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<style>
+  :root{
+    --ink:#15171a;
+    --paper:#f5f4f1;
+    --panel:#ffffff;
+    --line:#e2e0da;
+    --muted:#767267;
+    --accent:#2b5d5a;
+    --accent-ink:#eef6f4;
+    --warn:#a3492c;
+    --mono: 'SF Mono', 'IBM Plex Mono', Menlo, Consolas, monospace;
+    --sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:var(--sans);
+    background:var(--paper);
+    color:var(--ink);
+    min-height:100vh;
+  }
+  .wrap{
+    max-width:1180px;
+    margin:0 auto;
+    padding:32px 24px 80px;
+  }
+  header{
+    display:flex;
+    align-items:baseline;
+    justify-content:space-between;
+    margin-bottom:24px;
+    padding-bottom:16px;
+    border-bottom:1px solid var(--line);
+  }
+  header h1{
+    font-size:18px;
+    font-weight:600;
+    margin:0;
+    letter-spacing:-0.01em;
+  }
+  header .tag{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--muted);
+    text-transform:uppercase;
+    letter-spacing:0.06em;
+  }
+  .version-tag{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--accent);
+    background:var(--accent-ink);
+    border:1px solid var(--accent);
+    border-radius:20px;
+    padding:2px 9px;
+    cursor:pointer;
+    user-select:none;
+  }
+  .version-tag:hover{opacity:0.8;}
+  .changelog-overlay{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(21,23,26,0.55);
+    align-items:center;
+    justify-content:center;
+    z-index:100;
+    padding:20px;
+  }
+  .changelog-overlay.show{display:flex;}
+  .changelog-modal{
+    background:var(--panel);
+    border-radius:12px;
+    max-width:480px;
+    width:100%;
+    max-height:78vh;
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    box-shadow:0 20px 60px rgba(0,0,0,0.3);
+  }
+  .changelog-head{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:16px 18px;
+    border-bottom:1px solid var(--line);
+  }
+  .changelog-head h2{
+    margin:0;
+    font-size:14px;
+    font-weight:600;
+  }
+  .changelog-close{
+    background:transparent;
+    border:none;
+    font-size:18px;
+    color:var(--muted);
+    cursor:pointer;
+    line-height:1;
+    padding:2px 6px;
+  }
+  .changelog-close:hover{color:var(--ink);}
+  .changelog-body{
+    padding:16px 18px;
+    overflow-y:auto;
+  }
+  .changelog-entry{
+    margin-bottom:16px;
+  }
+  .changelog-entry:last-child{margin-bottom:0;}
+  .changelog-entry .v{
+    font-family:var(--mono);
+    font-size:12px;
+    font-weight:700;
+    color:var(--accent);
+  }
+  .changelog-entry ul{
+    margin:6px 0 0;
+    padding-left:18px;
+  }
+  .changelog-entry li{
+    font-size:12.5px;
+    line-height:1.6;
+    color:var(--ink);
+  }
+  .layout{
+    display:grid;
+    grid-template-columns:300px 1fr;
+    gap:20px;
+  }
+  @media (max-width:860px){
+    .layout{grid-template-columns:1fr;}
+  }
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:18px;
+  }
+  .panel + .panel{margin-top:16px;}
+  .panel h2{
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:0.08em;
+    color:var(--muted);
+    margin:0 0 14px;
+    font-weight:600;
+  }
+  .field{margin-bottom:14px;}
+  .field:last-child{margin-bottom:0;}
+  .field label{
+    display:block;
+    font-size:12.5px;
+    font-weight:500;
+    margin-bottom:6px;
+    color:var(--ink);
+  }
+  .field .hint{
+    font-size:11px;
+    color:var(--muted);
+    margin-top:4px;
+    line-height:1.4;
+  }
+  input[type="text"], input[type="number"], select{
+    width:100%;
+    padding:8px 10px;
+    border:1px solid var(--line);
+    border-radius:6px;
+    background:#fff;
+    font-size:13px;
+    font-family:var(--sans);
+    color:var(--ink);
+  }
+  input[type="text"]:focus, input[type="number"]:focus, select:focus{
+    outline:2px solid var(--accent);
+    outline-offset:1px;
+  }
+  .row2{display:grid; grid-template-columns:1fr 1fr; gap:8px;}
+  .radiogroup{display:flex; flex-direction:column; gap:6px;}
+  .radiogroup label{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    font-size:13px;
+    font-weight:400;
+    padding:7px 8px;
+    border-radius:6px;
+    border:1px solid transparent;
+    cursor:pointer;
+  }
+  .radiogroup label:hover{background:var(--paper);}
+  .radiogroup input{accent-color:var(--accent);}
+  .radiogroup label.active{
+    background:var(--accent-ink);
+    border-color:var(--accent);
+  }
+  .sub-inputs{
+    margin-top:6px;
+    margin-left:24px;
+    display:none;
+  }
+  .sub-inputs.show{display:block;}
+  .slider-row{display:flex; align-items:center; gap:10px;}
+  input[type="range"]{flex:1; accent-color:var(--accent);}
+  .slider-val{
+    font-family:var(--mono);
+    font-size:12px;
+    width:34px;
+    text-align:right;
+    color:var(--muted);
+  }
+  .token-buttons{
+    display:flex;
+    flex-wrap:wrap;
+    gap:6px;
+    margin-bottom:8px;
+  }
+  .token-btn{
+    font-family:var(--mono);
+    font-size:11px;
+    background:var(--paper);
+    border:1px solid var(--line);
+    border-radius:5px;
+    padding:4px 7px;
+    cursor:pointer;
+    color:var(--ink);
+  }
+  .token-btn:hover{border-color:var(--accent); color:var(--accent);}
+  .preview-name{
+    font-family:var(--mono);
+    font-size:12px;
+    background:var(--ink);
+    color:#f0f0ea;
+    padding:9px 10px;
+    border-radius:6px;
+    word-break:break-all;
+    margin-top:8px;
+  }
+  .preview-name .ext{color:#8fb8b3;}
+  .dropzone{
+    border:2px dashed var(--line);
+    border-radius:10px;
+    background:var(--panel);
+    padding:44px 20px;
+    text-align:center;
+    cursor:pointer;
+    transition:border-color .15s, background .15s;
+  }
+  .dropzone.drag{
+    border-color:var(--accent);
+    background:var(--accent-ink);
+  }
+  .dropzone h3{
+    margin:0 0 6px;
+    font-size:15px;
+    font-weight:600;
+  }
+  .dropzone p{
+    margin:0;
+    font-size:12.5px;
+    color:var(--muted);
+  }
+  .dropzone input{display:none;}
+  .toolbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    margin:16px 0 12px;
+  }
+  .count{
+    font-family:var(--mono);
+    font-size:12px;
+    color:var(--muted);
+  }
+  .toolbar-actions{display:flex; gap:8px;}
+  button{
+    font-family:var(--sans);
+    font-size:13px;
+    font-weight:600;
+    border:none;
+    border-radius:7px;
+    padding:9px 16px;
+    cursor:pointer;
+  }
+  .btn-primary{background:var(--accent); color:#fff;}
+  .btn-primary:disabled{background:#c7c3b8; cursor:not-allowed;}
+  .btn-ghost{background:transparent; color:var(--ink); border:1px solid var(--line);}
+  .btn-ghost:hover{border-color:var(--accent); color:var(--accent);}
+  .btn-small{padding:6px 10px; font-size:12px; font-weight:500;}
+  .interval-bar{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:10px 12px;
+    margin-bottom:12px;
+    flex-wrap:wrap;
+  }
+  .interval-label{
+    font-size:12.5px;
+    color:var(--muted);
+    white-space:nowrap;
+  }
+  .interval-bar input[type="number"]{
+    width:56px;
+    padding:6px 8px;
+  }
+  .grid{
+    display:grid;
+    grid-template-columns:repeat(auto-fill, minmax(150px, 1fr));
+    gap:12px;
+  }
+  .card{
+    background:var(--panel);
+    border:1px solid var(--line);
+    border-radius:9px;
+    overflow:hidden;
+    position:relative;
+  }
+  .card .thumb{
+    height:110px;
+    background:
+      linear-gradient(45deg, #eee 25%, transparent 25%),
+      linear-gradient(-45deg, #eee 25%, transparent 25%),
+      linear-gradient(45deg, transparent 75%, #eee 75%),
+      linear-gradient(-45deg, transparent 75%, #eee 75%);
+    background-size:16px 16px;
+    background-position:0 0, 0 8px, 8px -8px, -8px 0px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+  }
+  .card img{max-width:100%; max-height:100%; display:block;}
+  .card .meta{
+    padding:8px 9px;
+  }
+  .card .fname{
+    font-size:11.5px;
+    font-weight:600;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+  }
+  .card .dims{
+    font-family:var(--mono);
+    font-size:10.5px;
+    color:var(--muted);
+    margin-top:2px;
+  }
+  .card .status{
+    position:absolute;
+    top:6px;
+    right:6px;
+    font-family:var(--mono);
+    font-size:9.5px;
+    padding:2px 6px;
+    border-radius:20px;
+    background:rgba(0,0,0,0.55);
+    color:#fff;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+  }
+  .card .status.done{background:var(--accent);}
+  .card.excluded{opacity:0.4;}
+  .card.excluded .thumb{filter:grayscale(1);}
+  .card.error{opacity:1;}
+  .card.error .thumb{background:#fbe9e5;}
+  .card .status.error{background:var(--warn);}
+  .card .status.loading{background:rgba(0,0,0,0.35);}
+  .warning-banner{
+    display:none;
+    background:#fbe9e5;
+    border:1px solid var(--warn);
+    border-radius:8px;
+    padding:10px 12px;
+    margin-bottom:12px;
+    font-size:12.5px;
+    color:var(--warn);
+  }
+  .warning-banner.show{display:block;}
+  .warning-banner b{font-weight:700;}
+  .card .remove{
+    position:absolute;
+    top:6px;
+    left:6px;
+    width:18px;
+    height:18px;
+    border-radius:50%;
+    background:rgba(0,0,0,0.55);
+    color:#fff;
+    border:none;
+    font-size:12px;
+    line-height:18px;
+    padding:0;
+    cursor:pointer;
+    text-align:center;
+  }
+  .card .toggle-include{
+    position:absolute;
+    bottom:6px;
+    right:6px;
+    font-family:var(--mono);
+    font-size:9.5px;
+    padding:3px 7px;
+    border-radius:20px;
+    border:none;
+    cursor:pointer;
+    text-transform:uppercase;
+    letter-spacing:0.04em;
+    background:var(--ink);
+    color:#fff;
+  }
+  .card.excluded .toggle-include{
+    background:var(--warn);
+    color:#fff;
+  }
+  .empty-state{
+    text-align:center;
+    padding:40px;
+    color:var(--muted);
+    font-size:13px;
+  }
+  .progress-wrap{
+    margin-top:14px;
+    display:none;
+  }
+  .progress-wrap.show{display:block;}
+  .progress-bar{
+    height:6px;
+    background:var(--line);
+    border-radius:4px;
+    overflow:hidden;
+  }
+  .progress-bar > div{
+    height:100%;
+    background:var(--accent);
+    width:0%;
+    transition:width .1s linear;
+  }
+  .progress-label{
+    font-family:var(--mono);
+    font-size:11px;
+    color:var(--muted);
+    margin-top:6px;
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>PNG/JPEG → WebP Converter</h1>
+    <div style="display:flex; align-items:baseline; gap:10px;">
+      <span class="tag">Runs entirely in-browser · nothing uploaded</span>
+      <span class="version-tag" id="versionTag" title="Click 3× for changelog">v1.5</span>
+    </div>
+  </header>
+
+  <div class="changelog-overlay" id="changelogOverlay">
+    <div class="changelog-modal">
+      <div class="changelog-head">
+        <h2>Changelog</h2>
+        <button class="changelog-close" id="changelogClose">×</button>
+      </div>
+      <div class="changelog-body" id="changelogBody"></div>
+    </div>
+  </div>
+
+  <div class="layout">
+    <div class="left">
+      <div class="panel">
+        <h2>Resize</h2>
+        <div class="radiogroup" id="resizeGroup">
+          <label class="active"><input type="radio" name="resize" value="none" checked> Keep original size</label>
+          <label><input type="radio" name="resize" value="fit"> Fit within max W/H</label>
+          <div class="sub-inputs" id="sub-fit">
+            <div class="row2">
+              <input type="number" id="fitW" placeholder="Max width" value="1600">
+              <input type="number" id="fitH" placeholder="Max height" value="1600">
+            </div>
+            <div class="hint">Scales down to fit inside this box, aspect ratio preserved. Won't upscale.</div>
+          </div>
+          <label><input type="radio" name="resize" value="scale"> Scale by percentage</label>
+          <div class="sub-inputs" id="sub-scale">
+            <input type="number" id="scalePct" placeholder="Percent" value="50" min="1" max="400">
+            <div class="hint">100 = original size. Applies to every image individually.</div>
+          </div>
+          <label><input type="radio" name="resize" value="exact"> Exact dimensions</label>
+          <div class="sub-inputs" id="sub-exact">
+            <div class="row2">
+              <input type="number" id="exactW" placeholder="Width" value="800">
+              <input type="number" id="exactH" placeholder="Height" value="600">
+            </div>
+            <div class="hint">Stretches to fit — may distort aspect ratio.</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Quality</h2>
+        <div class="field">
+          <label>WebP compression quality</label>
+          <div class="slider-row">
+            <input type="range" id="quality" min="1" max="100" value="82">
+            <span class="slider-val" id="qualityVal">82</span>
+          </div>
+          <div class="hint">Lower = smaller files, more compression artifacts. 80–85 is a solid default for UI/web assets.</div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>File naming</h2>
+        <div class="field">
+          <label>Tokens</label>
+          <div class="token-buttons">
+            <button type="button" class="token-btn" data-token="{name}">{name}</button>
+            <button type="button" class="token-btn" data-token="{width}">{width}</button>
+            <button type="button" class="token-btn" data-token="{height}">{height}</button>
+            <button type="button" class="token-btn" data-token="{index}">{index}</button>
+            <button type="button" class="token-btn" data-token="{date}">{date}</button>
+          </div>
+          <input type="text" id="template" value="{name}">
+        </div>
+        <div class="field">
+          <label>Case for {name}</label>
+          <select id="caseMode">
+            <option value="asis">As-is</option>
+            <option value="lower">lowercase</option>
+            <option value="upper">UPPERCASE</option>
+            <option value="kebab">kebab-case</option>
+            <option value="snake">snake_case</option>
+          </select>
+        </div>
+        <div class="row2">
+          <div class="field">
+            <label>Index start</label>
+            <input type="number" id="indexStart" value="1" min="0">
+          </div>
+          <div class="field">
+            <label>Index padding</label>
+            <input type="number" id="indexPad" value="2" min="0" max="6">
+          </div>
+        </div>
+        <div class="field">
+          <label>Preview</label>
+          <div class="preview-name" id="namePreview">example-image<span class="ext">.webp</span></div>
+          <div class="hint">Spaces are converted to hyphens automatically. Duplicate names get a numeric suffix.</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="right">
+      <div class="dropzone" id="dropzone">
+        <input type="file" id="fileInput" accept="image/png, image/jpeg" multiple>
+        <h3>Drop PNGs or JPEGs here</h3>
+        <p>or click to browse · multiple files, mixed formats OK</p>
+      </div>
+
+      <div class="toolbar">
+        <span class="count" id="fileCount">0 files loaded</span>
+        <div class="toolbar-actions">
+          <button class="btn-ghost" id="clearBtn" style="display:none;">Clear all</button>
+          <button class="btn-primary" id="convertBtn" disabled>Convert &amp; download .zip</button>
+        </div>
+      </div>
+
+      <div class="warning-banner" id="warningBanner"></div>
+
+      <div class="interval-bar" id="intervalBar" style="display:none;">
+        <span class="interval-label">Keep 1 of every</span>
+        <input type="number" id="intervalN" value="2" min="2" max="50">
+        <span class="interval-label">frames</span>
+        <button class="btn-ghost btn-small" id="applyKeepBtn">Apply</button>
+        <button class="btn-ghost btn-small" id="applyDropBtn">Invert (drop instead)</button>
+        <button class="btn-ghost btn-small" id="resetIncludeBtn">Reset — include all</button>
+      </div>
+
+      <div class="progress-wrap" id="progressWrap">
+        <div class="progress-bar"><div id="progressFill"></div></div>
+        <div class="progress-label" id="progressLabel">Converting 0 / 0</div>
+      </div>
+
+      <div id="gridArea">
+        <div class="empty-state">No images yet — drop some PNGs or JPEGs on the left to get started.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+let files = []; // {id, file, img, width, height, url}
+let idCounter = 0;
+
+const CHANGELOG = [
+  {
+    v: 'v1.5',
+    changes: [
+      'Added JPEG support — the tool now accepts .jpg/.jpeg alongside .png, and converts either to WebP.',
+      'Filename base-stripping now handles .png, .jpg and .jpeg extensions correctly.'
+    ]
+  },
+  {
+    v: 'v1.4',
+    changes: [
+      'Fixed frame order getting scrambled on large batches — files are now natural-sorted by filename on drop instead of relying on browser drop order.',
+      'Fixed frames silently disappearing — images now load 8 at a time (was: all at once), and failed decodes show as a visible "error" card with a warning banner instead of vanishing.',
+      'Convert button disables until all dropped files finish loading.'
+    ]
+  },
+  {
+    v: 'v1.3',
+    changes: [
+      'Added "Keep 1 of every N frames" / "Invert (drop instead)" bulk selector for thinning long sequences.',
+      'Added a reset-all button for the interval selector.'
+    ]
+  },
+  {
+    v: 'v1.2',
+    changes: [
+      'Added per-frame "Drop" toggle to exclude a frame from export without removing it from the list.',
+      '{index} in the naming template now renumbers sequentially over included frames only, so dropped frames leave no gaps.'
+    ]
+  },
+  {
+    v: 'v1.1',
+    changes: [
+      'Added filename templating with {name}, {width}, {height}, {index}, {date} tokens.',
+      'Added case transforms (lower / upper / kebab / snake) and configurable index start + padding.',
+      'Added live filename preview and automatic de-duplication of output names.'
+    ]
+  },
+  {
+    v: 'v1.0',
+    changes: [
+      'Initial release: drag-and-drop PNG batch upload, resize (fit / scale % / exact), WebP quality slider, zip export.'
+    ]
+  }
+];
+
+let versionClickCount = 0;
+let versionClickTimer = null;
+const versionTag = document.getElementById('versionTag');
+const changelogOverlay = document.getElementById('changelogOverlay');
+const changelogBody = document.getElementById('changelogBody');
+
+versionTag.addEventListener('click', () => {
+  versionClickCount++;
+  clearTimeout(versionClickTimer);
+  versionClickTimer = setTimeout(() => { versionClickCount = 0; }, 900);
+  if (versionClickCount >= 3) {
+    versionClickCount = 0;
+    openChangelog();
+  }
+});
+
+function openChangelog() {
+  changelogBody.innerHTML = CHANGELOG.map(entry => `
+    <div class="changelog-entry">
+      <div class="v">${entry.v}</div>
+      <ul>${entry.changes.map(c => `<li>${c}</li>`).join('')}</ul>
+    </div>
+  `).join('');
+  changelogOverlay.classList.add('show');
+}
+
+document.getElementById('changelogClose').addEventListener('click', () => {
+  changelogOverlay.classList.remove('show');
+});
+changelogOverlay.addEventListener('click', (e) => {
+  if (e.target === changelogOverlay) changelogOverlay.classList.remove('show');
+});
+
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const gridArea = document.getElementById('gridArea');
+const fileCount = document.getElementById('fileCount');
+const clearBtn = document.getElementById('clearBtn');
+const convertBtn = document.getElementById('convertBtn');
+const qualitySlider = document.getElementById('quality');
+const qualityVal = document.getElementById('qualityVal');
+const templateInput = document.getElementById('template');
+const caseModeSel = document.getElementById('caseMode');
+const indexStartInp = document.getElementById('indexStart');
+const indexPadInp = document.getElementById('indexPad');
+const namePreview = document.getElementById('namePreview');
+const progressWrap = document.getElementById('progressWrap');
+const progressFill = document.getElementById('progressFill');
+const progressLabel = document.getElementById('progressLabel');
+
+// --- Drag & drop wiring ---
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault();
+  dropzone.classList.remove('drag');
+  handleFiles(e.dataTransfer.files);
+});
+fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+function naturalCompare(a, b) {
+  return a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' });
+}
+
+function handleFiles(fileList) {
+  const validTypes = ['image/png', 'image/jpeg'];
+  const validExt = /\.(png|jpe?g)$/i;
+  const imgFiles = Array.from(fileList).filter(f => validTypes.includes(f.type) || validExt.test(f.name));
+  if (!imgFiles.length) return;
+
+  // Drop order (and even OS file-dialog order) isn't reliable across browsers/platforms,
+  // so we sort by filename (natural/numeric-aware) at ingestion time and treat that as truth.
+  imgFiles.sort((a, b) => naturalCompare(a.name, b.name));
+
+  // Create stub entries immediately, in final order, so the list reflects everything
+  // that was dropped even before thumbnails/dimensions are ready.
+  const newEntries = imgFiles.map(file => ({
+    id: idCounter++,
+    file,
+    img: null,
+    width: null,
+    height: null,
+    url: URL.createObjectURL(file),
+    status: 'loading',
+    excluded: false
+  }));
+
+  files = files.concat(newEntries);
+  files.sort((a, b) => naturalCompare(a.file.name, b.file.name));
+  renderGrid();
+
+  // Load with limited concurrency instead of firing all Image() loads at once —
+  // doing hundreds simultaneously is what was causing some to silently fail to decode.
+  const CONCURRENCY = 8;
+  let cursor = 0;
+  let failedNames = [];
+
+  function loadNext() {
+    if (cursor >= newEntries.length) {
+      if (failedNames.length) showLoadWarning(failedNames);
+      return;
+    }
+    const entry = newEntries[cursor++];
+    const img = new Image();
+    img.onload = () => {
+      entry.img = img;
+      entry.width = img.naturalWidth;
+      entry.height = img.naturalHeight;
+      entry.status = 'ready';
+      renderGrid();
+      loadNext();
+    };
+    img.onerror = () => {
+      entry.status = 'error';
+      entry.excluded = true; // keep it out of export automatically, but visible
+      failedNames.push(entry.file.name);
+      renderGrid();
+      loadNext();
+    };
+    img.src = entry.url;
+  }
+
+  for (let i = 0; i < Math.min(CONCURRENCY, newEntries.length); i++) loadNext();
+}
+
+function showLoadWarning(names) {
+  const banner = document.getElementById('warningBanner');
+  const shown = names.slice(0, 6).join(', ');
+  const more = names.length > 6 ? ` and ${names.length - 6} more` : '';
+  banner.innerHTML = `<b>${names.length} file${names.length === 1 ? '' : 's'} failed to load</b> and were excluded from export: ${shown}${more}. They're still in the list, marked "error" — remove or replace them.`;
+  banner.classList.add('show');
+}
+
+function renderGrid() {
+  const includedCount = files.filter(f => !f.excluded && f.status === 'ready').length;
+  const loadingCount = files.filter(f => f.status === 'loading').length;
+  fileCount.textContent = loadingCount
+    ? `Loading ${files.length - loadingCount} of ${files.length}…`
+    : includedCount + ' of ' + files.length + ' file' + (files.length === 1 ? '' : 's') + ' will export';
+  convertBtn.disabled = includedCount === 0 || loadingCount > 0;
+  clearBtn.style.display = files.length ? 'inline-block' : 'none';
+  document.getElementById('intervalBar').style.display = files.length > 1 ? 'flex' : 'none';
+
+  if (files.length === 0) {
+    gridArea.innerHTML = '<div class="empty-state">No images yet — drop some PNGs or JPEGs on the left to get started.</div>';
+    updatePreview();
+    return;
+  }
+
+  const grid = document.createElement('div');
+  grid.className = 'grid';
+  files.forEach(f => {
+    const card = document.createElement('div');
+    card.className = 'card' + (f.excluded ? ' excluded' : '') + (f.status === 'error' ? ' error' : '');
+    let statusText = f.status;
+    if (f.excluded && f.status !== 'error') statusText = 'dropped';
+    const dimsText = f.status === 'loading' ? 'loading…' : (f.status === 'error' ? 'failed to decode' : `${f.width}×${f.height}px`);
+    card.innerHTML = `
+      <button class="remove" data-id="${f.id}" title="Remove entirely">×</button>
+      <span class="status ${f.status === 'done' ? 'done' : ''} ${f.status === 'loading' ? 'loading' : ''} ${f.status === 'error' ? 'error' : ''}">${statusText}</span>
+      <div class="thumb">${f.status === 'loading' ? '' : `<img src="${f.url}" alt="">`}</div>
+      <div class="meta">
+        <div class="fname">${f.file.name}</div>
+        <div class="dims">${dimsText}</div>
+      </div>
+      <button class="toggle-include" data-id="${f.id}">${f.excluded ? 'Include' : 'Drop'}</button>
+    `;
+    grid.appendChild(card);
+  });
+  gridArea.innerHTML = '';
+  gridArea.appendChild(grid);
+
+  grid.querySelectorAll('.remove').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const id = parseInt(e.target.dataset.id);
+      files = files.filter(f => f.id !== id);
+      renderGrid();
+    });
+  });
+
+  grid.querySelectorAll('.toggle-include').forEach(btn => {
+    btn.addEventListener('click', e => {
+      const id = parseInt(e.target.dataset.id);
+      const f = files.find(f => f.id === id);
+      if (f) f.excluded = !f.excluded;
+      renderGrid();
+    });
+  });
+
+  updatePreview();
+}
+
+clearBtn.addEventListener('click', () => {
+  files = [];
+  renderGrid();
+});
+
+document.getElementById('applyKeepBtn').addEventListener('click', () => {
+  const n = parseInt(document.getElementById('intervalN').value) || 2;
+  files.forEach((f, i) => {
+    f.excluded = (i % n !== 0); // keep frame 0, n, 2n... drop the rest
+  });
+  renderGrid();
+});
+
+document.getElementById('applyDropBtn').addEventListener('click', () => {
+  const n = parseInt(document.getElementById('intervalN').value) || 2;
+  files.forEach((f, i) => {
+    f.excluded = (i % n === 0); // drop frame 0, n, 2n... keep the rest
+  });
+  renderGrid();
+});
+
+document.getElementById('resetIncludeBtn').addEventListener('click', () => {
+  files.forEach(f => f.excluded = false);
+  renderGrid();
+});
+
+// --- Resize option toggling ---
+document.querySelectorAll('#resizeGroup input[name="resize"]').forEach(radio => {
+  radio.addEventListener('change', () => {
+    document.querySelectorAll('#resizeGroup label').forEach(l => l.classList.remove('active'));
+    radio.closest('label').classList.add('active');
+    document.querySelectorAll('.sub-inputs').forEach(s => s.classList.remove('show'));
+    const map = { fit: 'sub-fit', scale: 'sub-scale', exact: 'sub-exact' };
+    if (map[radio.value]) document.getElementById(map[radio.value]).classList.add('show');
+  });
+});
+
+// --- Quality slider ---
+qualitySlider.addEventListener('input', () => {
+  qualityVal.textContent = qualitySlider.value;
+});
+
+// --- Naming ---
+document.querySelectorAll('.token-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const token = btn.dataset.token;
+    const start = templateInput.selectionStart ?? templateInput.value.length;
+    const end = templateInput.selectionEnd ?? templateInput.value.length;
+    templateInput.value = templateInput.value.slice(0, start) + token + templateInput.value.slice(end);
+    templateInput.focus();
+    updatePreview();
+  });
+});
+[templateInput, caseModeSel, indexStartInp, indexPadInp].forEach(el => {
+  el.addEventListener('input', updatePreview);
+});
+
+function applyCase(name, mode) {
+  switch (mode) {
+    case 'lower': return name.toLowerCase();
+    case 'upper': return name.toUpperCase();
+    case 'kebab': return name.toLowerCase().replace(/[\s_]+/g, '-').replace(/[^a-z0-9-]/g, '');
+    case 'snake': return name.toLowerCase().replace(/[\s-]+/g, '_').replace(/[^a-z0-9_]/g, '');
+    default: return name;
+  }
+}
+
+function buildFileName(baseName, width, height, index) {
+  const template = templateInput.value || '{name}';
+  const caseMode = caseModeSel.value;
+  const pad = parseInt(indexPadInp.value) || 0;
+  const indexStr = String(index).padStart(pad, '0');
+  const dateStr = new Date().toISOString().slice(0,10).replace(/-/g, '');
+
+  let name = template
+    .replace(/{name}/g, applyCase(baseName, caseMode))
+    .replace(/{width}/g, width)
+    .replace(/{height}/g, height)
+    .replace(/{index}/g, indexStr)
+    .replace(/{date}/g, dateStr);
+
+  name = name.trim().replace(/\s+/g, '-');
+  return name;
+}
+
+function updatePreview() {
+  const sample = files.find(f => !f.excluded && f.status === 'ready');
+  const baseName = sample ? sample.file.name.replace(/\.(png|jpe?g)$/i, '') : 'example-image';
+  const w = sample ? sample.width : 1200;
+  const h = sample ? sample.height : 800;
+  const start = parseInt(indexStartInp.value) || 0;
+  const name = buildFileName(baseName, w, h, start);
+  namePreview.innerHTML = escapeHtml(name) + '<span class="ext">.webp</span>';
+}
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
+}
+
+updatePreview();
+
+// --- Resize calculation ---
+function getTargetDims(origW, origH) {
+  const mode = document.querySelector('#resizeGroup input[name="resize"]:checked').value;
+  if (mode === 'none') return { w: origW, h: origH };
+  if (mode === 'fit') {
+    const maxW = parseInt(document.getElementById('fitW').value) || origW;
+    const maxH = parseInt(document.getElementById('fitH').value) || origH;
+    const ratio = Math.min(maxW / origW, maxH / origH, 1); // never upscale
+    return { w: Math.round(origW * ratio), h: Math.round(origH * ratio) };
+  }
+  if (mode === 'scale') {
+    const pct = parseFloat(document.getElementById('scalePct').value) || 100;
+    return { w: Math.round(origW * pct / 100), h: Math.round(origH * pct / 100) };
+  }
+  if (mode === 'exact') {
+    const w = parseInt(document.getElementById('exactW').value) || origW;
+    const h = parseInt(document.getElementById('exactH').value) || origH;
+    return { w, h };
+  }
+  return { w: origW, h: origH };
+}
+
+function convertOne(f) {
+  return new Promise((resolve) => {
+    const { w, h } = getTargetDims(f.width, f.height);
+    const canvas = document.createElement('canvas');
+    canvas.width = w;
+    canvas.height = h;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(f.img, 0, 0, w, h);
+    const quality = parseInt(qualitySlider.value) / 100;
+    canvas.toBlob(blob => {
+      resolve({ blob, w, h });
+    }, 'image/webp', quality);
+  });
+}
+
+// --- Convert & zip ---
+convertBtn.addEventListener('click', async () => {
+  const toExport = files.filter(f => !f.excluded && f.status === 'ready');
+  if (!toExport.length) return;
+  convertBtn.disabled = true;
+  progressWrap.classList.add('show');
+
+  const zip = new JSZip();
+  const usedNames = new Set();
+  const indexStart = parseInt(indexStartInp.value) || 0;
+
+  for (let i = 0; i < toExport.length; i++) {
+    const f = toExport[i];
+    progressLabel.textContent = `Converting ${i + 1} / ${toExport.length}`;
+    progressFill.style.width = Math.round(((i) / toExport.length) * 100) + '%';
+
+    const { blob, w, h } = await convertOne(f);
+    const baseName = f.file.name.replace(/\.(png|jpe?g)$/i, '');
+    let finalName = buildFileName(baseName, w, h, indexStart + i);
+
+    let candidate = finalName;
+    let dupeCount = 1;
+    while (usedNames.has(candidate)) {
+      candidate = `${finalName}-${dupeCount}`;
+      dupeCount++;
+    }
+    usedNames.add(candidate);
+
+    zip.file(candidate + '.webp', blob);
+    f.status = 'done';
+    renderGridStatusOnly();
+  }
+
+  progressFill.style.width = '100%';
+  progressLabel.textContent = `Done — zipping ${toExport.length} file${toExport.length === 1 ? '' : 's'}`;
+
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+  const zipUrl = URL.createObjectURL(zipBlob);
+  const a = document.createElement('a');
+  a.href = zipUrl;
+  a.download = 'webp-export.zip';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+
+  setTimeout(() => {
+    progressWrap.classList.remove('show');
+    convertBtn.disabled = false;
+  }, 800);
+});
+
+function renderGridStatusOnly() {
+  document.querySelectorAll('.card').forEach(card => {
+    const id = parseInt(card.querySelector('.remove').dataset.id);
+    const f = files.find(f => f.id === id);
+    if (!f) return;
+    const el = card.querySelector('.status');
+    el.textContent = f.excluded ? 'dropped' : f.status;
+    el.classList.toggle('done', f.status === 'done' && !f.excluded);
+  });
+}
+</script>
+</body>
+</html>
