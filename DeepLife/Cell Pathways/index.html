@@ -1,0 +1,2498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Flow Weave</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/webm-muxer@5.1.4/build/webm-muxer.js"></script>
+<style>
+  :root{
+    --bg-panel:#0e0f13;
+    --bg-panel-2:#000000;
+    --line:#24262d;
+    --text:#e8eaed;
+    --text-dim:#8b909a;
+    --accent:#ff2ea6;
+    --card-bg:#000000;
+  }
+  * { box-sizing: border-box; }
+  html,body{
+    margin:0; height:100%;
+    background:var(--bg-panel-2);
+    color:var(--text);
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  .app{ display:flex; height:100vh; width:100vw; overflow:hidden; }
+
+  .sidebar{
+    width: 320px; min-width:320px;
+    background: var(--bg-panel);
+    border-right: 1px solid var(--line);
+    display:flex; flex-direction:column;
+    overflow-y:auto;
+  }
+  .sidebar-head{ padding: 22px 20px 16px; border-bottom:1px solid var(--line); }
+  .sidebar-head .eyebrow{
+    font-size:10.5px; letter-spacing:.12em; text-transform:uppercase;
+    color:var(--accent); font-weight:600; margin-bottom:6px; font-family: 'SF Mono', ui-monospace, monospace;
+  }
+  .sidebar-head h1{ font-size:18px; margin:0 0 4px; font-weight:600; letter-spacing:-.01em; }
+  .sidebar-head p{ font-size:12.5px; color:var(--text-dim); margin:0; line-height:1.5; }
+
+  .section{ padding: 18px 20px; border-bottom:1px solid var(--line); }
+  .section h2{
+    font-size:11px; text-transform:uppercase; letter-spacing:.08em;
+    color:var(--text-dim); margin:0 0 12px; font-weight:600;
+  }
+
+  button{
+    font-family:inherit; font-size:13px; font-weight:600; cursor:pointer;
+    border-radius:7px; border:1px solid transparent; padding:10px 14px;
+    width:100%; transition: transform .08s ease, background .15s, border-color .15s;
+  }
+  button:active{ transform: scale(0.98); }
+  .btn-primary{ background:var(--accent); color:#180311; }
+  .btn-primary:hover{ background:#ff59ba; }
+  .btn-secondary{ background:transparent; color:var(--text); border-color:var(--line); }
+  .btn-secondary:hover{ border-color:var(--accent); color:var(--accent); }
+  .btn-row{ display:flex; gap:8px; }
+  .btn-row button{ flex:1; }
+
+  label.field{ display:block; font-size:11.5px; color:var(--text-dim); margin: 14px 0 6px; }
+  label.field:first-child{ margin-top:0; }
+  input[type=range]{ width:100%; accent-color: var(--accent); background:transparent; }
+  .range-val{ float:right; color:var(--accent); font-family:ui-monospace,monospace; font-size:11px; }
+  input[type=number]{
+    width:100%; background:var(--bg-panel-2); border:1px solid var(--line); color:var(--text);
+    border-radius:6px; padding:8px 10px; font-family:inherit; font-size:13px;
+  }
+  .checkbox-row{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-dim); margin-top:12px; cursor:pointer; }
+  .checkbox-row input{ accent-color: var(--accent); }
+
+  .palette-row{ display:flex; gap:8px; }
+  .swatch{
+    flex:1; height:40px; border-radius:8px; cursor:pointer; border:2px solid var(--line);
+    padding:0; position:relative; overflow:hidden;
+  }
+  .swatch.active{ border-color:#fff; }
+  .swatch span{
+    position:absolute; bottom:3px; left:0; right:0; text-align:center;
+    font-size:9px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.8); font-weight:600;
+    text-transform:uppercase; letter-spacing:.04em;
+  }
+
+  .hint{ font-size:11.5px; color:var(--text-dim); line-height:1.6; margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
+  .hint b{ color:var(--text); }
+  .footer-space{ flex:1; }
+  .progress-line{ font-size:11px; color:var(--accent); font-family:ui-monospace,monospace; margin-top:10px; min-height:14px; }
+
+  .canvas-wrap{
+    flex:1; position:relative; display:flex; align-items:center; justify-content:center;
+    background: #000000; overflow:hidden; cursor:grab; touch-action:none;
+  }
+  .canvas-wrap.dragging{ cursor:grabbing; }
+  .card{
+    background:var(--card-bg); border-radius:10px;
+    box-shadow: 0 20px 70px -10px rgba(255,46,166,.12), 0 0 0 1px rgba(255,255,255,.08);
+    padding: 10px; max-height: 88vh; max-width: 92vw;
+    transform-origin: center center;
+  }
+  svg#stage{ display:block; height: 80vh; width:auto; max-width: 88vw; }
+  .zoom-reset{
+    position:absolute; top:16px; right:16px; z-index:2;
+    background:var(--bg-panel-2, #1a1a1f); color:var(--text, #fff); border:1px solid var(--line, #333);
+    border-radius:6px; padding:6px 12px; font-size:11.5px; cursor:pointer; opacity:0.85;
+  }
+  .zoom-reset:hover{ opacity:1; }
+
+  .top-badge{
+    position:absolute; top:20px; left:20px; font-family:ui-monospace,monospace;
+    font-size:11px; color:#ffffff99; background:#ffffff14; border:1px solid #ffffff1a;
+    padding:6px 10px; border-radius:20px; backdrop-filter: blur(4px);
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="sidebar">
+    <div class="sidebar-head">
+      <div class="eyebrow">Reciprocal Space</div>
+      <h1>Flow Weave</h1>
+      <p>Layered node columns connected by colored strings — generative flow art, inspired by your reference.</p>
+    </div>
+
+    <div class="section">
+      <h2>Generate</h2>
+      <button class="btn-primary" id="btn-shuffle">Shuffle ⟲</button>
+    </div>
+
+    <div class="section">
+      <h2>Palette</h2>
+      <div class="palette-row">
+        <button class="swatch active" data-palette="aurora" style="background:linear-gradient(90deg,#2E6FE0,#B23FE0,#FF2EA6,#FF6F3D);"><span>Aurora</span></button>
+        <button class="swatch" data-palette="ocean" style="background:linear-gradient(90deg,#0B3D91,#22B8CF,#5EE6B0);"><span>Ocean</span></button>
+      </div>
+      <div class="palette-row" style="margin-top:8px;">
+        <button class="swatch" data-palette="sunset" style="background:linear-gradient(90deg,#FF3D68,#FFB703,#6C3FD6);"><span>Sunset</span></button>
+        <button class="swatch" data-palette="mono" style="background:linear-gradient(90deg,#0FF0DC,#0670A8);"><span>Mono</span></button>
+      </div>
+    </div>
+
+    <div class="section">
+      <h2>Composition</h2>
+      <div class="hint" id="composition-hint" style="margin-top:0; padding-top:0; border-top:none;"></div>
+
+      <label class="field">Density</label>
+      <div class="btn-row">
+        <button class="btn-primary" id="btn-comp-simple">Simple</button>
+        <button class="btn-secondary" id="btn-comp-complex">Complex</button>
+      </div>
+
+      <label class="checkbox-row">
+        <input type="checkbox" id="chk-single-pathway">
+        Isolate one target's pathways (target → DEG)
+      </label>
+
+      <label class="checkbox-row">
+        <input type="checkbox" id="chk-show-target-deg">
+        Show target &amp; DEG only (fade rest 20%)
+      </label>
+
+      <label class="checkbox-row">
+        <input type="checkbox" id="chk-show-proteins-tfs">
+        Show proteins &amp; TFs only (fade rest 20%)
+      </label>
+
+      <label class="field">Style</label>
+      <div class="btn-row">
+        <button class="btn-primary" id="btn-style-structured">Structured</button>
+        <button class="btn-secondary" id="btn-style-organic">Organic</button>
+      </div>
+
+      <label class="field">Shape</label>
+      <div class="btn-row">
+        <button class="btn-primary" id="btn-shape-linear">Linear</button>
+        <button class="btn-secondary" id="btn-shape-radial">Radial</button>
+        <button class="btn-secondary" id="btn-shape-single">Single node</button>
+      </div>
+
+      <label class="field">Nucleus offset X <span class="range-val" id="val-nucleus-offx">0</span></label>
+      <input type="range" id="rng-nucleus-offx" min="-100" max="100" value="0">
+
+      <label class="field">Nucleus offset Y <span class="range-val" id="val-nucleus-offy">0</span></label>
+      <input type="range" id="rng-nucleus-offy" min="-100" max="100" value="0">
+
+      <label class="field">Targets <span class="range-val" id="val-targets">1</span></label>
+      <input type="range" id="rng-targets" min="1" max="10" value="1">
+
+      <label class="checkbox-row">
+        <input type="checkbox" id="chk-extra-target">
+        Add an extra target (keeps existing targets in place)
+      </label>
+
+      <label class="field">Layers <span class="range-val" id="val-layers">5</span></label>
+      <input type="range" id="rng-layers" min="3" max="14" value="5">
+
+      <label class="field">Nodes per layer <span class="range-val" id="val-nodesperlayer">4</span></label>
+      <input type="range" id="rng-nodesperlayer" min="2" max="14" value="4">
+
+      <label class="field">Layer spread <span class="range-val" id="val-layerspread">55</span></label>
+      <input type="range" id="rng-layerspread" min="0" max="100" value="55">
+    </div>
+
+    <div class="section">
+      <h2>Style</h2>
+      <label class="field">Node size <span class="range-val" id="val-nodesize">50</span></label>
+      <input type="range" id="rng-nodesize" min="5" max="250" value="50">
+
+      <label class="field">Line thickness <span class="range-val" id="val-thickness">50</span></label>
+      <input type="range" id="rng-thickness" min="0" max="100" value="50">
+
+      <label class="field">Opacity variation <span class="range-val" id="val-opacityvar">65</span></label>
+      <input type="range" id="rng-opacityvar" min="0" max="100" value="65">
+
+      <label class="checkbox-row">
+        <input type="checkbox" id="chk-animate" checked>
+        Animate glow (start nodes → end nodes)
+      </label>
+
+      <label class="checkbox-row">
+        <input type="checkbox" id="chk-permanent-colors">
+        Keep node colors on permanently
+      </label>
+
+      <label class="checkbox-row">
+        <input type="checkbox" id="chk-include-bg" checked>
+        Include black background in export
+      </label>
+    </div>
+
+    <div class="section">
+      <h2>Export</h2>
+      <div class="btn-row">
+        <button class="btn-primary" id="btn-export-one">Download .svg</button>
+        <button class="btn-secondary" id="btn-copy-svg">Copy SVG</button>
+      </div>
+      <label class="field">Batch size</label>
+      <input type="number" id="num-batch" min="1" max="30" value="8">
+      <button class="btn-secondary" id="btn-export-batch" style="margin-top:10px;">Generate &amp; download batch (.zip)</button>
+
+      <label class="field" style="margin-top:16px;">Video length (cycles)</label>
+      <input type="number" id="num-video-cycles" min="1" max="6" value="1">
+
+      <button class="btn-secondary" id="btn-export-video" style="margin-top:10px;">Export video (.mp4)</button>
+      <div class="hint" style="margin-top:4px; padding-top:0; border-top:none;">
+        Records the live animation straight to MP4 using Chrome/Edge's own
+        built-in recorder — needs Chrome or Edge. Produces a "fragmented"
+        MP4 that plays fine in browsers and on uploads (Instagram, websites,
+        etc.), but macOS's own QuickTime/Preview can't open it directly; VLC
+        handles it fine. Exports whatever's currently zoomed/panned into
+        view — zoom into a pathway first if you want just that.
+      </div>
+
+      <label class="checkbox-row" style="margin-top:10px;">
+        <input type="checkbox" id="chk-experimental-video">
+        Experimental: true constant-bitrate export (WebCodecs)
+      </label>
+      <div class="hint" style="margin-top:4px; padding-top:0; border-top:none;">
+        The standard export's bitrate is only a hint — browsers can (and on
+        thin lines over black often do) quietly use less than requested,
+        even at a high target. This path encodes with WebCodecs at a truly
+        constant bitrate instead, at full native resolution — but it relies
+        on your browser's own video encoder directly, which can be slow or
+        hang on a dense diagram or a long clip. Try it; if it's not
+        finishing, the export button turns into <b>Cancel export</b> — click
+        it to stop safely, then uncheck this and use the standard export
+        instead. Always exports WebM regardless of the format the standard
+        path uses.
+      </div>
+
+      <div class="progress-line" id="progress"></div>
+    </div>
+
+    <div class="footer-space"></div>
+    <div class="section" style="border-bottom:none;">
+      <div class="hint">
+        Inspired by the reference — a generative recreation, not a pixel trace. <b>Shuffle</b> gives a whole new composition; the sliders and palettes restyle the current one live. <b>Density</b>, <b>Style</b> and <b>Shape</b> are all independent — mix any combination. Simple/Complex resets Targets/Layers/Nodes per layer; Structured/Organic controls scatter; <b>Radial</b> arranges layers as rings collapsing into a central nucleus (targets scattered on the outer ring). <b>Nucleus offset</b> actually moves the nucleus off-center — the outer ring stays put, every layer in between drifts proportionally, and connections skew naturally as a result.
+      </div>
+    </div>
+  </div>
+
+  <div class="canvas-wrap" id="canvas-wrap">
+    <div class="top-badge" id="badge">variation 0</div>
+    <button class="zoom-reset" id="btn-zoom-reset" title="Reset zoom/pan">Reset zoom</button>
+    <div class="card" id="zoom-card">
+      <svg id="stage" xmlns="http://www.w3.org/2000/svg"></svg>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+
+  // ====================== CONSTANTS ======================
+  const MARGIN = 24;
+  const MARGIN_X = 90;
+  // RULE: Density (Simple/Complex), Style (Structured/Organic) and Shape
+  // (Linear/Radial) are three fully independent axes — any combination is
+  // valid. Density controls how many nodes/edges exist and how they're
+  // wired up; Style controls only how loosely nodes sit in space; Shape
+  // controls the overall geometry — left-to-right columns vs. concentric
+  // rings around a cell-like nucleus. Canvas base shape follows Style for
+  // Linear (a wide rectangle for Structured, a square for Organic); Radial
+  // is always a square regardless of Style, since rings need equal room in
+  // every direction. Density just scales whichever base up.
+  const STYLE_BASE_SIZE = {
+    structured: { w: 1600, h: 920 },
+    organic:    { w: 1300, h: 1300 }
+  };
+  const RADIAL_BASE_SIZE = { w: 1400, h: 1400 };
+  const COMPLEX_SIZE_SCALE = 1.6; // Complex needs more room regardless of style/shape
+  function currentCanvasSize(){
+    const base = (shapeMode === 'radial' || shapeMode === 'single') ? RADIAL_BASE_SIZE : STYLE_BASE_SIZE[styleMode];
+    const scale = compositionMode === 'complex' ? COMPLEX_SIZE_SCALE : 1;
+    return { w: Math.round(base.w * scale), h: Math.round(base.h * scale) };
+  }
+
+  // Per-style jitter profile — purely spatial, never depends on Density.
+  // Linear: x/yMult are how much a node strays off its column/slot — 0 for
+  // Structured keeps those columns perfectly clean.
+  // Radial: angleJitterFrac/radiusJitterFrac are how much a node strays off
+  // its exact ring position. Unlike Linear, Structured keeps a real
+  // baseline here instead of 0 — a perfectly even, dead-symmetric ring of
+  // nodes reads as a technical wheel diagram, not a cell, so even
+  // "Structured" radial nodes get some organic irregularity. Organic pushes
+  // it much further.
+  const STYLE_JITTER = {
+    structured: { x: 0,   yMult: 0.16, angleJitterFrac: 0.35, radiusJitterFrac: 0.06 },
+    organic:    { x: 0.4, yMult: 0.55, angleJitterFrac: 0.8,  radiusJitterFrac: 0.14 }
+  };
+
+  // RULE (Radial shape only): targets (layer 0) sit on the outermost, most
+  // scattered ring like receptors on a cell membrane — always noticeably
+  // scattered, even under Structured style. The last two layers cluster
+  // tightly near the nucleus focus point as a single "nucleus" blob,
+  // distinct from the smoother ring-to-ring falloff of the layers before
+  // them.
+  const RADIAL_TARGET_MIN_ANGLE_JITTER = 1.1;
+  const RADIAL_TARGET_MIN_RADIUS_JITTER = 0.2;
+  const RADIAL_NUCLEUS_LAYERS = 2;
+  const RADIAL_NUCLEUS_RADIUS_FRAC = 0.15; // fraction of outer radius
+  const RADIAL_NUCLEUS_DRIFT_FRAC = 0.6;   // how far the nucleus can drift off the true center, as a fraction of outer radius
+
+  // Minimum arc length (px) to leave between adjacent nodes on a ring, so a
+  // ring never gets so small relative to its node count that neighbors'
+  // halos (peak ~34px across at the default node size, during the pulse
+  // bump) overlap. Independent of the live node-size slider — like the
+  // Linear gap below, ring geometry is decided once at layout time, not
+  // continuously reactive to a purely cosmetic control.
+  const MIN_RADIAL_ARC_SPACING = 80;
+  function minRadiusForRingCount(count){
+    return count > 1 ? (MIN_RADIAL_ARC_SPACING * count) / (2*Math.PI) : 0;
+  }
+
+  // Radius for layer `li` of `totalLayers`, given the canvas's outer radius
+  // and the Layer-spread slider (0–1): higher spread pushes the ring-to-
+  // -nucleus transition further out, so rings occupy more of the radius
+  // before collapsing inward; lower spread bunches rings near the edge.
+  // Never returns less than minRadiusForRingCount(count) — the nucleus's
+  // tight falloff is a stylistic default, not a hard floor, and loses to
+  // avoiding overlap when a layer has enough nodes to need more room.
+  function radialRadiusForLayer(li, totalLayers, outerRadius, spreadVal, count){
+    const nucleusRadius = outerRadius * RADIAL_NUCLEUS_RADIUS_FRAC;
+    const nucleusLayers = Math.min(RADIAL_NUCLEUS_LAYERS, Math.max(totalLayers - 1, 0));
+    const ringLayerCount = totalLayers - nucleusLayers;
+    const minRadius = minRadiusForRingCount(count);
+    if(li >= ringLayerCount){
+      const nucleusIndex = li - ringLayerCount; // 0 or 1
+      return Math.max(nucleusRadius * (1 - nucleusIndex * 0.4), minRadius);
+    }
+    const innerBound = nucleusRadius * (1.4 + spreadVal * 2.2);
+    const t = ringLayerCount > 1 ? li / (ringLayerCount - 1) : 0;
+    return Math.max(outerRadius - t * (outerRadius - innerBound), minRadius);
+  }
+
+  // Max edges a single node may fan out to in the next layer, purely a
+  // function of Density. Simple keeps the original sparse 1–2 edges; Complex
+  // allows up to 5, which — on top of its own larger, non-tapering node
+  // counts below — produces a dense, tangled mesh reminiscent of a
+  // cell-signaling network diagram, regardless of Style.
+  const MAX_DEGREE = {
+    simple: 2,
+    complex: 5
+  };
+  // Max edges any single node may receive FROM the previous layer — capped
+  // much tighter than the fan-out above. Without this, Complex's high
+  // fan-out plus many targets meant a handful of downstream nodes (often
+  // right at the final "DEG" layer) absorbed nearly every pathway, reading
+  // as if every target funneled into the same endpoint. Some convergence is
+  // still fine (a lower cap than 1 would look identical to Simple), but
+  // capping in-degree well below the fan-out keeps each pathway legible as
+  // its own thread even through a dense mesh.
+  const MAX_IN_DEGREE = {
+    simple: 2,
+    complex: 3
+  };
+
+  // Node-layer composition defaults — a single target (source) node fanning
+  // out over 5 layers, peaking at 4 connected nodes per layer. All three are
+  // adjustable from the sidebar to add complexity; these are just the
+  // sparse, clean starting point.
+  const DEFAULT_TARGETS = 1;
+  const DEFAULT_LAYERS = 5;
+  const DEFAULT_NODES_PER_LAYER = 4;
+
+  // RULE: selecting Simple or Complex from the Density toggle always resets
+  // the Targets/Layers/Nodes-per-layer sliders to that mode's preset —
+  // Simple snaps back to the clean standard composition, Complex jumps
+  // straight to a much denser one. The Style toggle never touches these.
+  const COMPOSITION_PRESETS = {
+    simple:  { targets: DEFAULT_TARGETS, layers: DEFAULT_LAYERS, nodesPerLayer: DEFAULT_NODES_PER_LAYER },
+    complex: { targets: 6, layers: 10, nodesPerLayer: 12 }
+  };
+
+  let LAYER_COUNTS = [1, 3, 4, 3, 3];
+  let UNATTACHED_COUNTS = [0, 2, 2, 3, 2];
+  let layerX = [];
+  function computeLayerX(){
+    layerX = LAYER_COUNTS.map((_,i) => MARGIN_X + i*(W - 2*MARGIN_X)/(LAYER_COUNTS.length-1));
+  }
+
+  // Builds the per-layer node-count profile from the three Composition
+  // sliders: layer 0 always holds exactly `targets` nodes. Depends only on
+  // Density (compositionMode), never on Style.
+  //
+  // Simple: the remaining layers ramp up toward `nodesPerLayer` around the
+  // middle and taper toward the edges (never below 2) — a clean hump — and a
+  // portion of each layer's nodes are left unattached (hollow), same as the
+  // original fixed shape.
+  //
+  // Complex: no taper and no unattached nodes at all — every layer stays
+  // near peak density (nodesPerLayer, ±1) end to end, and every single node
+  // generated gets wired into the mesh, so the whole diagram reads as
+  // uniformly dense rather than bulging in the middle — closer to a
+  // cell-signaling network than a tapered flow.
+  function buildLayerCounts(targets, numLayers, nodesPerLayer){
+    const counts = [targets];
+    const tailLen = numLayers - 1;
+    // RULE: every downstream layer — especially the taper's tail ends (the
+    // layer right after targets, and the DEG layer itself) — needs at
+    // least `targets` nodes to draw from. Without this floor, a small
+    // tapered layer forces every target's pathway through the same
+    // handful of nodes purely by pigeonhole, which guarantees near-total
+    // DEG overlap between targets regardless of how connections are
+    // chosen afterward.
+    const floor = Math.max(2, targets);
+    if(compositionMode === 'complex'){
+      for(let k=0; k<tailLen; k++){
+        counts.push(Math.max(floor, nodesPerLayer - Math.floor(Math.random()*2)));
+      }
+    } else {
+      const centerK = Math.round((tailLen - 1) / 2);
+      const halfRange = Math.max(centerK, tailLen - 1 - centerK, 1);
+      for(let k=0; k<tailLen; k++){
+        const dist = Math.abs(k - centerK) / halfRange;
+        let c = Math.round(nodesPerLayer - dist * Math.max(0, nodesPerLayer - floor));
+        c = Math.max(floor, Math.min(nodesPerLayer, c));
+        counts.push(c);
+      }
+    }
+    const unattachedRatio = compositionMode === 'complex' ? 0 : 0.6;
+    const unattached = counts.map((c,i) => i === 0 ? 0 : Math.max(0, Math.round(c*unattachedRatio)));
+    return { counts, unattached };
+  }
+
+  // RULE: every line shares the exact same gradient (not per-line random
+  // color picks) — this is the ordered left-to-right stop sequence per palette.
+  const GRADIENT_STOPS = {
+    aurora: ['#2E6FE0','#6C3FD6','#FF2EA6','#FF6F3D'],
+    ocean:  ['#0B3D91','#1E6FD9','#22B8CF','#5EE6B0'],
+    sunset: ['#FF3D68','#FF6F3D','#FFB703','#B23FE0'],
+    mono:   ['#0FF0DC','#17D1E8','#0C9BC7','#0A3F73']
+  };
+  // RULE: variable transparency across the shared gradient, so it isn't a
+  // flat wash — faint at the tips, brightest through the middle/neck.
+  const OPACITY_ENVELOPE = [0.2, 0.95, 0.95, 0.3];
+
+  // RULE: animated glow travel timing — one stage per gap between layers.
+  // NUM_STAGES/CYCLE depend on the (now adjustable) layer count, so they're
+  // recomputed in generateLayout() rather than fixed once at load.
+  const STAGE_DUR = 1.0, STAGE_PAUSE = 0.6;
+  let NUM_STAGES = LAYER_COUNTS.length - 1;
+  let CYCLE = NUM_STAGES * STAGE_DUR + STAGE_PAUSE;
+  // RULE: targets don't all fire in lockstep — each gets its own small
+  // random head start (as a fraction of one stage's travel time), so their
+  // pulses visibly depart at different moments instead of simultaneously.
+  const TARGET_PHASE_SPREAD = 0.6; // up to 60% of one stage's duration
+
+  // ====================== STATE ======================
+  let compositionMode = 'simple'; // 'simple' | 'complex' — density/connectivity
+  let styleMode = 'structured';   // 'structured' | 'organic' — spatial looseness
+  let shapeMode = 'linear';       // 'linear' | 'radial' — overall geometry
+  let W = 0, H = 0;
+  ({ w: W, h: H } = currentCanvasSize());
+  let targetsCount = DEFAULT_TARGETS;
+  let numLayers = DEFAULT_LAYERS;
+  let nodesPerLayer = DEFAULT_NODES_PER_LAYER;
+  let layers = [];       // array of arrays of y-positions, one per layer
+  let unattached = [];   // array of arrays of y-positions — visible, unconnected
+  let lines = [];        // {x0,y0,x1,y1,bow} — flattened, one per connection between adjacent layers
+  let stageLines = [];   // same connections grouped per stage — [stage][edge], used to keep glow pulses aligned with the actual drawn lines
+  // nodeArrivalTimes[li][j] — the FULL SET of distinct moments (0–1 fraction
+  // of CYCLE) node j in layer li receives a glow from some upstream target.
+  // Layer 0 gets each target's own random head start (see
+  // TARGET_PHASE_SPREAD), as a single-element array. Every layer after that
+  // is derived by unioning (not collapsing to the minimum) the arrival times
+  // of every incoming edge, each offset by one stage duration — see
+  // computeNodeArrivalTimes — so a node fed by several targets fires once
+  // per distinct upstream pathway instead of only ever showing the earliest
+  // one. Since every path from a given target to layer li is exactly li
+  // hops (edges only connect adjacent layers), this union is bounded by
+  // targetsCount and never grows combinatorially.
+  let nodeArrivalTimes = [];
+  // singlePathway — every node/edge reachable from ONE target (always index
+  // 0), through the exact same nodes/edges already generated above, for the
+  // "Show a single pathway only" toggle. Computed once per generateLayout()
+  // call (not per render) and reused verbatim by both the full and
+  // single-pathway views, so toggling the checkbox never changes what's
+  // reachable or how it looks — it only shows/hides the nodes and edges
+  // that aren't part of that target's own subtree.
+  // { nodeReachable: [one Set of node indices per layer], edgeReachable: a
+  // Set of the exact stageLines edge objects that connect two reachable
+  // nodes }.
+  let singlePathway = { nodeReachable: [], edgeReachable: new Set() };
+  // "Add an extra target" — holds a snapshot of layers[0]/stageLines[0]
+  // taken right before an extra target was appended, so turning the
+  // checkbox off restores the base layout exactly rather than needing a
+  // full regenerate (which would reshuffle everything, not just remove the
+  // one bonus node). null when no extra target is currently applied.
+  let extraTargetSnapshot = null;
+  let currentPalette = 'aurora';
+  let variationCount = 0;
+  // Mirrors the zoom/pan module's own zoom/panX/panY (see initZoomPan) so
+  // video export can tell whether the user has actually zoomed/panned at
+  // all, distinct from a diagram that merely happens to overflow the
+  // canvas-wrap at the current window size — see computeVisibleCropViewBox.
+  let currentZoomState = { zoom: 1, panX: 0, panY: 0 };
+
+  // Radial-only geometry, recomputed in generateLayout() whenever the shape
+  // is 'radial'. radialCenter is the true canvas center, where the outer
+  // (targets) ring is always anchored. The "Nucleus offset X/Y" sliders move
+  // radialNucleusFocus instead — each layer's own ring center is then
+  // interpolated between radialCenter (targets) and radialNucleusFocus (the
+  // last layer), so the nucleus visibly drifts off-center like a real cell
+  // while the outer membrane stays put, and every layer in between drifts
+  // proportionally. This is a real positional change (recomputed by
+  // generateLayout), not just a curve-drawing trick.
+  let radialCenter = { x: 0, y: 0 };
+  let radialOuterRadius = 0;
+  let radialNucleusFocus = { x: 0, y: 0 };
+  // singleNodeGroups[ptIndex] — which of the 3 groups (0/1/2) each source
+  // in layers[0] belongs to, for Single-node shape only. Positions and
+  // connections don't carry group identity on their own (a source is just
+  // a point, an edge just two indices), so this is the one piece of extra
+  // state that lets render() color a source — and the line leaving it —
+  // by its group instead of by its (shared, uninformative) layer index.
+  let singleNodeGroups = [];
+
+  const stage = document.getElementById('stage');
+  const badge = document.getElementById('badge');
+
+  // ====================== GENERATION ======================
+  function shuffleArr(arr){
+    for(let i=arr.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [arr[i],arr[j]] = [arr[j],arr[i]];
+    }
+    return arr;
+  }
+
+  // ---- color interpolation, for sampling a layer's color off the shared
+  // gradient (used to light nodes up in the color of their section) ----
+  function hexToRgb(hex){
+    hex = hex.replace('#','');
+    return [parseInt(hex.substr(0,2),16), parseInt(hex.substr(2,2),16), parseInt(hex.substr(4,2),16)];
+  }
+  function rgbToHex(rgb){
+    return '#' + rgb.map(v => Math.max(0,Math.min(255,Math.round(v))).toString(16).padStart(2,'0')).join('');
+  }
+  function sampleGradient(colors, t){
+    if(t <= 0) return colors[0];
+    if(t >= 1) return colors[colors.length-1];
+    const n = colors.length - 1;
+    for(let i=0;i<n;i++){
+      const t0 = i/n, t1 = (i+1)/n;
+      if(t >= t0 && t <= t1){
+        const localT = (t-t0)/(t1-t0);
+        const a = hexToRgb(colors[i]), b = hexToRgb(colors[i+1]);
+        return rgbToHex(a.map((v,k)=> v + (b[k]-v)*localT));
+      }
+    }
+    return colors[colors.length-1];
+  }
+
+  // ---- keyframe envelopes for the traveling-glow animation ----
+  // Each envelope is built from a raw [time, value] points array via one of
+  // the "xxxPoints" functions below. That array is consumed two ways:
+  // buildEnvelope() turns it into SMIL keyTimes/values strings for live
+  // playback, and sampleEnvelopeAtT() resolves it to a single value at an
+  // arbitrary time — used by the video exporter to render exact, static
+  // "freeze-frame" snapshots of the same animation math, so exported video
+  // frames match the live SMIL playback exactly rather than approximating it.
+  //
+  // generic envelope normalizer: filters out any non-increasing times and
+  // pads the ends so the first/last value holds through 0 and 1.
+  function normalizeEnvelope(points){
+    const kt = [], vals = [];
+    points.forEach(([t,v]) => {
+      t = Math.max(0, Math.min(1, t));
+      if(kt.length && t <= kt[kt.length-1] + 1e-6) return;
+      kt.push(t); vals.push(v);
+    });
+    if(kt.length === 0){ kt.push(0); vals.push(points.length ? points[0][1] : 0); }
+    if(kt[0] > 0){ kt.unshift(0); vals.unshift(vals[0]); }
+    if(kt[kt.length-1] < 1){ kt.push(1); vals.push(vals[vals.length-1]); }
+    return { kt, vals };
+  }
+  function buildEnvelope(points){
+    const { kt, vals } = normalizeEnvelope(points);
+    return { keyTimes: kt.join(';'), values: vals.join(';') };
+  }
+  // Resolves a points array to the value active at time t (0–1). Numeric
+  // values interpolate linearly between keyframes (matching SMIL's default
+  // calcMode); pass discrete:true (or a non-numeric value, e.g. a color
+  // string) to hold each segment's starting value instead, matching
+  // calcMode="discrete".
+  function sampleEnvelopeAtT(points, t, discrete){
+    const { kt, vals } = normalizeEnvelope(points);
+    t = Math.max(0, Math.min(1, t));
+    for(let i=0;i<kt.length-1;i++){
+      if(t >= kt[i] && t <= kt[i+1]){
+        if(discrete || typeof vals[i] !== 'number') return vals[i];
+        const localT = (t-kt[i]) / ((kt[i+1]-kt[i]) || 1);
+        return vals[i] + (vals[i+1]-vals[i])*localT;
+      }
+    }
+    return vals[vals.length-1];
+  }
+
+  // a value that holds vStart, sweeps to vEnd during [t0,t1], then holds —
+  // used to sweep the traveling dash smoothly along one line segment,
+  // always landing exactly on the node at both ends (never off-path)
+  function sweepPoints(t0, t1, vStart, vEnd){
+    return [[t0, vStart], [t1, vEnd]];
+  }
+  function sweepEnvelope(t0, t1, vStart, vEnd){
+    return buildEnvelope(sweepPoints(t0, t1, vStart, vEnd));
+  }
+  // A brief bump up to a peak value at each of `arrivals` (0–1 times, one
+  // per distinct upstream pathway reaching this node — see
+  // computeNodeArrivalTimes), holding base in between. An arrival at
+  // exactly 0 starts AT the peak instead of ramping up to it (used for a
+  // target diamond whose own pathway starts the cycle) — every later
+  // arrival ramps up from base and peaks (presses) right at that moment,
+  // so each pathway's signal reads as its own distinct pass through the
+  // node rather than collapsing into one shared flash.
+  function multiArrivalPoints(arrivals, width, baseVal, peakVal){
+    const sorted = Array.from(new Set(arrivals)).map(t => Math.max(0, Math.min(1, t))).sort((a,b) => a-b);
+    if(sorted.length === 0) return [[0, baseVal]];
+    const pts = [];
+    sorted.forEach(t => {
+      pts.push([t, peakVal]);
+      pts.push([Math.min(1, t + width), baseVal]);
+    });
+    if(pts[0][0] > 0) pts.unshift([0, baseVal]);
+    return pts;
+  }
+  function multiArrivalEnvelope(arrivals, width, baseVal, peakVal){
+    return buildEnvelope(multiArrivalPoints(arrivals, width, baseVal, peakVal));
+  }
+  // RULE: the glow should read as one continuous pass, not stop-start at
+  // each node — fades a segment's pulse in slightly BEFORE it starts moving
+  // and out slightly AFTER it finishes, so consecutive segments overlap for
+  // a brief moment right at the shared node instead of both going dark.
+  // peakOpacity keeps the glow translucent rather than solid white.
+  function pulseOpacityPoints(t0, t1, crossfade, peakOpacity){
+    const preFade = Math.max(0, t0 - crossfade);
+    const postFade = Math.min(1, t1 + crossfade);
+    const pts = [];
+    if(preFade > 0) pts.push([preFade, 0]);
+    pts.push([t0, peakOpacity]);
+    pts.push([t1, peakOpacity]);
+    pts.push([postFade, 0]);
+    return pts;
+  }
+  function pulseOpacityEnvelope(t0, t1, crossfade, peakOpacity){
+    return buildEnvelope(pulseOpacityPoints(t0, t1, crossfade, peakOpacity));
+  }
+
+  // positions for one layer in Linear shape: a single node sits dead-center;
+  // layers with more nodes spread symmetrically around center, y-spacing
+  // controlled by the Layer spread slider. In Organic style nodes also get
+  // x-jitter within their layer's zone, so they cluster loosely instead of
+  // aligning in a straight column. Depends only on styleMode, never on
+  // compositionMode.
+  function layerPositions(count, gap, baseX, xJitter){
+    const yJitterMult = STYLE_JITTER[styleMode].yMult;
+    const jitterX = () => xJitter ? (Math.random()-0.5)*xJitter : 0;
+    if(count === 1) return [{ x: baseX + jitterX()*0.4, y: H/2 }];
+    const totalSpan = (count-1)*gap;
+    const startY = H/2 - totalSpan/2;
+    const pts = [];
+    for(let i=0;i<count;i++){
+      const y = startY + i*gap + (Math.random()-0.5)*gap*yJitterMult;
+      pts.push({ x: baseX + jitterX(), y });
+    }
+    return pts;
+  }
+
+  // positions for one ring in Radial shape: `count` nodes spread around
+  // `radius`, centered on `center` (that layer's own drifted center — see
+  // generateLayout), each rotated by a fresh random `rotationOffset` so
+  // successive rings never align into dead-straight spokes. Angle spacing
+  // starts even, then every node gets randomized further by angleJitterFrac
+  // (a real baseline even under Structured — see STYLE_JITTER) so it reads
+  // as scattered rather than a mechanical wheel. Layer 0 (targets) always
+  // gets a strong minimum scatter regardless of Style, so targets read like
+  // receptors scattered over the membrane even in Structured mode.
+  //
+  // The targets ring sits at radius === radialOuterRadius exactly, so its
+  // (large, guaranteed-minimum) outward jitter can push a point's raw
+  // distance past the canvas edge; a drifted inner layer's own center can
+  // do the same even with a small ring radius. Every point is clamped back
+  // onto the canvas's actual drawable circle (radius radialOuterRadius
+  // around the true center) as a final, unconditional safety net — this is
+  // measured from radialCenter, not the possibly-drifted `center` passed
+  // in, so it holds regardless of jitter/drift combination.
+  //
+  // RULE: radius jitter scales off THIS ring's own radius, not the outer
+  // canvas radius — the nucleus's tight inner rings are a small fraction of
+  // the outer radius, so sizing their jitter off the outer radius let it
+  // dwarf the ring's own scale and throw points clean into a neighboring
+  // ring's territory, reading as nodes from two different layers
+  // overlapping. Scaling off `radius` keeps jitter proportional to
+  // whatever ring it's actually perturbing.
+  function radialLayerPositions(count, radius, isTargets, rotationOffset, center){
+    const style = STYLE_JITTER[styleMode];
+    const angleJitterFrac = isTargets ? Math.max(style.angleJitterFrac, RADIAL_TARGET_MIN_ANGLE_JITTER) : style.angleJitterFrac;
+    const radiusJitterFrac = isTargets ? Math.max(style.radiusJitterFrac, RADIAL_TARGET_MIN_RADIUS_JITTER) : style.radiusJitterFrac;
+    const radiusJitterPx = radius * radiusJitterFrac;
+    const pointAt = (r, angle) => clampToCanvas({ x: center.x + r*Math.cos(angle), y: center.y + r*Math.sin(angle) });
+    if(count === 1) return [pointAt(radius, rotationOffset)];
+    const angleStep = (Math.PI*2) / count;
+    const pts = [];
+    for(let i=0;i<count;i++){
+      const angle = i*angleStep + rotationOffset + (Math.random()-0.5)*angleStep*angleJitterFrac;
+      const r = radius + (Math.random()-0.5)*2*radiusJitterPx;
+      pts.push(pointAt(r, angle));
+    }
+    return pts;
+  }
+
+  // Pulls a point back onto the canvas's drawable circle (radius
+  // radialOuterRadius around radialCenter) if it landed outside it.
+  function clampToCanvas(pt){
+    const dx = pt.x - radialCenter.x, dy = pt.y - radialCenter.y;
+    const dist = Math.hypot(dx, dy);
+    if(dist <= radialOuterRadius || dist === 0) return pt;
+    const scale = radialOuterRadius / dist;
+    return { x: radialCenter.x + dx*scale, y: radialCenter.y + dy*scale };
+  }
+
+  // Shared by both shapes: splits `allPts` into connected vs. unattached,
+  // designating slots randomly so unattached nodes sit interleaved rather
+  // than scattered separately.
+  function splitConnectedUnattached(allPts, connectedCount){
+    const slotOrder = shuffleArr(Array.from({length: allPts.length}, (_,i)=>i));
+    const connectedSlots = new Set(slotOrder.slice(0, connectedCount));
+    const connectedPts = [], unattachedPts = [];
+    allPts.forEach((pt,i) => {
+      if(connectedSlots.has(i)) connectedPts.push(pt); else unattachedPts.push(pt);
+    });
+    return { connectedPts, unattachedPts };
+  }
+
+  // Single-node shape: GROUP_COUNT clusters of nodes, each fanned across
+  // its own slice of the ring (with a gap between slices so each reads as
+  // a separate group, not one continuous ring), all converging on one
+  // shared node at the canvas center. Reuses the same radialCenter/
+  // radialOuterRadius/radialNucleusFocus state as Radial shape purely so
+  // the rest of render() (the shared-gradient defs in particular) doesn't
+  // need its own case — Single-node has no actual nucleus drift, so focus
+  // is just the center.
+  const SINGLE_GROUP_COUNT = 3;
+  function singleGroupPositions(count, radius, centerAngle, arcSpan, center, radiusJitterPx, angleJitterFrac){
+    if(count === 1) return [{ x: center.x + radius*Math.cos(centerAngle), y: center.y + radius*Math.sin(centerAngle) }];
+    const slotWidth = arcSpan / count;
+    const pts = [];
+    for(let i=0;i<count;i++){
+      const slotCenter = centerAngle - arcSpan/2 + slotWidth*(i+0.5);
+      const angle = slotCenter + (Math.random()-0.5)*slotWidth*angleJitterFrac;
+      const r = radius + (Math.random()-0.5)*2*radiusJitterPx;
+      pts.push({ x: center.x + r*Math.cos(angle), y: center.y + r*Math.sin(angle) });
+    }
+    return pts;
+  }
+
+  // Every source connects directly to the single shared node — the point
+  // of this shape is one node fed by several full groups of lines, not a
+  // sparse/degree-capped subset the way the layered shapes connect.
+  function buildFullyConnectedStage(fromPts, toPts){
+    function randomBow(){
+      return styleMode === 'organic' ? (Math.random()-0.5)*90 : 0;
+    }
+    return fromPts.map((fp, fi) => ({
+      x0: fp.x, y0: fp.y, x1: toPts[0].x, y1: toPts[0].y,
+      bow: randomBow(), srcIndex: fi, dstIndex: 0
+    }));
+  }
+
+  function generateLayout(){
+    layers = [];
+    unattached = [];
+    singleNodeGroups = [];
+
+    if(shapeMode === 'single'){
+      radialCenter = { x: W/2, y: H/2 };
+      radialOuterRadius = Math.min(W, H)/2 - MARGIN;
+      radialNucleusFocus = radialCenter;
+      const spreadVal = parseFloat(document.getElementById('rng-layerspread').value) / 100;
+      const perGroup = Math.max(1, nodesPerLayer);
+      const jitterCfg = STYLE_JITTER[styleMode];
+      const radiusJitterPx = radialOuterRadius * jitterCfg.radiusJitterFrac;
+      // RULE: Layer spread controls how tight each group's fan is — low
+      // spread bunches a group's lines close together, high spread lets
+      // them splay wider — while always leaving a visible gap between the
+      // 3 groups so they read as distinct bundles, never one solid ring.
+      const arcFrac = 0.5 + spreadVal * 0.3;
+      const arcSpan = (Math.PI*2 / SINGLE_GROUP_COUNT) * arcFrac;
+      const sourcePts = [];
+      for(let g=0; g<SINGLE_GROUP_COUNT; g++){
+        const centerAngle = (g / SINGLE_GROUP_COUNT) * Math.PI*2 - Math.PI/2;
+        const pts = singleGroupPositions(perGroup, radialOuterRadius, centerAngle, arcSpan, radialCenter, radiusJitterPx, jitterCfg.angleJitterFrac);
+        pts.forEach(pt => { sourcePts.push(pt); singleNodeGroups.push(g); });
+      }
+      layers = [sourcePts, [{ ...radialCenter }]];
+      unattached = [[], []];
+      LAYER_COUNTS = [sourcePts.length, 1];
+      UNATTACHED_COUNTS = [0, 0];
+      NUM_STAGES = 1;
+      CYCLE = NUM_STAGES * STAGE_DUR + STAGE_PAUSE;
+      stageLines = [buildFullyConnectedStage(layers[0], layers[1])];
+      lines = stageLines.flat();
+      nodeArrivalTimes = computeNodeArrivalTimes();
+      singlePathway = computeSinglePathway();
+      updateCompositionHint();
+      return;
+    }
+
+    const built = buildLayerCounts(targetsCount, numLayers, nodesPerLayer);
+    LAYER_COUNTS = built.counts;
+    UNATTACHED_COUNTS = built.unattached;
+    computeLayerX();
+    NUM_STAGES = LAYER_COUNTS.length - 1;
+    CYCLE = NUM_STAGES * STAGE_DUR + STAGE_PAUSE;
+
+    if(shapeMode === 'radial'){
+      radialCenter = { x: W/2, y: H/2 };
+      radialOuterRadius = Math.min(W, H)/2 - MARGIN;
+      const spreadVal = parseFloat(document.getElementById('rng-layerspread').value) / 100;
+
+      // RULE: the "Nucleus offset X/Y" sliders move where the NUCLEUS itself
+      // sits (radialNucleusFocus), not just how connections are drawn. Each
+      // layer's own ring center is interpolated between radialCenter (the
+      // outer/targets ring, always anchored at the true canvas center) and
+      // radialNucleusFocus (the innermost/nucleus layer) — so at offset 0
+      // everything is concentric as before, but any offset makes the
+      // nucleus visibly drift to one side while the outer membrane stays
+      // put, with every layer in between drifting proportionally. That
+      // drift is what makes connections arc/skew — a real structural
+      // asymmetry, not a fake curve pulled toward an unrelated point.
+      const offXpct = parseFloat(document.getElementById('rng-nucleus-offx').value) / 100;
+      const offYpct = parseFloat(document.getElementById('rng-nucleus-offy').value) / 100;
+      radialNucleusFocus = {
+        x: radialCenter.x + offXpct * radialOuterRadius * RADIAL_NUCLEUS_DRIFT_FRAC,
+        y: radialCenter.y + offYpct * radialOuterRadius * RADIAL_NUCLEUS_DRIFT_FRAC
+      };
+
+      // RULE: every ring gets its own fresh random rotation, regardless of
+      // Style — always, not just under Organic — so layers never line up
+      // into a mechanical spoke-and-wheel pattern.
+      const ringRotations = LAYER_COUNTS.map(() => Math.random()*Math.PI*2);
+      const lastLayer = LAYER_COUNTS.length - 1;
+      // RULE: rings must nest outside-in with real separation between them
+      // — same-ring crowding isn't the only way nodes end up overlapping;
+      // two ADJACENT rings sized too close together (e.g. both forced wide
+      // by minRadiusForRingCount for a big node count) put entirely
+      // different layers' nodes on top of each other. Fixed up in two
+      // passes: first, each ring's own bare-minimum radius for its node
+      // count; then, working from the innermost ring outward, every outer
+      // ring is grown (never shrunk — that would reintroduce its own
+      // internal crowding) until it clears the ring just inside it by
+      // MIN_RING_GAP.
+      const MIN_RING_GAP = 90;
+      const bareRadii = LAYER_COUNTS.map((connectedCount, li) => {
+        const total = connectedCount + UNATTACHED_COUNTS[li];
+        const minRadius = minRadiusForRingCount(total);
+        const ideal = radialRadiusForLayer(li, LAYER_COUNTS.length, radialOuterRadius, spreadVal, total);
+        return Math.max(ideal, minRadius);
+      });
+      const ringRadii = bareRadii.slice();
+      for(let li=ringRadii.length-2; li>=0; li--){
+        ringRadii[li] = Math.max(ringRadii[li], ringRadii[li+1] + MIN_RING_GAP);
+      }
+      LAYER_COUNTS.forEach((connectedCount, li) => {
+        const total = connectedCount + UNATTACHED_COUNTS[li];
+        const radius = ringRadii[li];
+        const t = lastLayer > 0 ? li / lastLayer : 0;
+        const layerCenter = {
+          x: radialCenter.x + (radialNucleusFocus.x - radialCenter.x) * t,
+          y: radialCenter.y + (radialNucleusFocus.y - radialCenter.y) * t
+        };
+        const allPts = radialLayerPositions(total, radius, li === 0, ringRotations[li], layerCenter);
+        const { connectedPts, unattachedPts } = splitConnectedUnattached(allPts, connectedCount);
+        layers.push(connectedPts);
+        unattached.push(unattachedPts);
+      });
+    } else {
+      const spreadVal = parseFloat(document.getElementById('rng-layerspread').value) / 100;
+      const gap = 55 + spreadVal * 90; // 55–145px between nodes within a layer
+      const layerSpacing = (W - 2*MARGIN_X) / (LAYER_COUNTS.length-1);
+      const jitterCfg = STYLE_JITTER[styleMode];
+      const xJitter = jitterCfg.x ? layerSpacing * jitterCfg.x : 0;
+
+      // RULE: unattached nodes sit in the same evenly-spaced sequence as
+      // the connected ones (not scattered separately) — generate every slot
+      // for a layer together, then randomly designate which are connected.
+      LAYER_COUNTS.forEach((connectedCount, li) => {
+        const total = connectedCount + UNATTACHED_COUNTS[li];
+        const allPts = layerPositions(total, gap, layerX[li], xJitter);
+        const { connectedPts, unattachedPts } = splitConnectedUnattached(allPts, connectedCount);
+        layers.push(connectedPts);
+        unattached.push(unattachedPts);
+      });
+    }
+
+    // RULE: not every node connects to every node — each node connects to
+    // at most 2 nodes in the neighboring layer, while every attached node
+    // still ends up with at least one connection (so "attached" nodes never
+    // look identical to the hollow "unattached" ones).
+    // Kept per-stage (not just flattened) so the animated glow can travel
+    // along exactly the same connections that are actually drawn.
+    //
+    // RULE: each target is also assigned its own "lane" (just its own
+    // index), inherited forward stage-by-stage by whichever node it
+    // actually connects to first (see buildStageLines) — real lineage, not
+    // an arbitrary per-layer label — so a target's downstream reach stays
+    // mostly confined to its own lineage instead of fanning out to
+    // saturate the entire next layer within a couple of hops. A target is
+    // meant to be fairly specific to a subset of DEGs, with only some
+    // cross-lineage overlap, not affect nearly all of them.
+    stageLines = [];
+    let laneCursor = layers[0].map((_,i) => i);
+    for(let li=0; li<layers.length-1; li++){
+      const isFinalStage = li === layers.length-2;
+      const built = buildStageLines(layers[li], layers[li+1], laneCursor, isFinalStage);
+      stageLines.push(built.lines);
+      laneCursor = built.lanes;
+    }
+    lines = stageLines.flat();
+    nodeArrivalTimes = computeNodeArrivalTimes();
+    singlePathway = computeSinglePathway();
+
+    updateCompositionHint();
+  }
+
+  // Finds every node/edge reachable from the first target (index 0) by
+  // walking the layered DAG one stage at a time — a node at layer li+1 is
+  // reachable iff some edge from a reachable layer-li node reaches it.
+  // Since edges only ever connect adjacent layers, this simple per-stage
+  // expansion is exact (no need for general graph traversal/backtracking).
+  function computeSinglePathway(){
+    const nodeReachable = [new Set([0])];
+    const edgeReachable = new Set();
+    for(let li=0; li<stageLines.length; li++){
+      const nextReachable = new Set();
+      stageLines[li].forEach(edge => {
+        if(nodeReachable[li].has(edge.srcIndex)){
+          edgeReachable.add(edge);
+          nextReachable.add(edge.dstIndex);
+        }
+      });
+      nodeReachable.push(nextReachable);
+    }
+    return { nodeReachable, edgeReachable };
+  }
+
+  // Picks a spot for a new target that doesn't require moving any existing
+  // one: finds the single largest gap among the current targets (in Y for
+  // Linear, in angle around the ring for Radial — including the open space
+  // above/below or all the way around, not just between two of them) and
+  // places the new one in the middle of it.
+  function computeGapFillTargetPosition(existingPts){
+    if(shapeMode === 'radial'){
+      if(existingPts.length === 0) return clampToCanvas({ x: radialCenter.x + radialOuterRadius, y: radialCenter.y });
+      const angles = existingPts
+        .map(p => Math.atan2(p.y - radialCenter.y, p.x - radialCenter.x))
+        .sort((a,b) => a-b);
+      let bestGap = -1, bestMid = angles[0];
+      for(let i=0;i<angles.length;i++){
+        const a0 = angles[i];
+        const a1 = i+1 < angles.length ? angles[i+1] : angles[0] + Math.PI*2;
+        const gap = a1 - a0;
+        if(gap > bestGap){ bestGap = gap; bestMid = a0 + gap/2; }
+      }
+      return clampToCanvas({
+        x: radialCenter.x + radialOuterRadius*Math.cos(bestMid),
+        y: radialCenter.y + radialOuterRadius*Math.sin(bestMid)
+      });
+    }
+    if(existingPts.length === 0) return { x: layerX[0], y: H/2 };
+    const baseX = existingPts.reduce((a,p) => a+p.x, 0) / existingPts.length;
+    const ys = existingPts.map(p => p.y).sort((a,b) => a-b);
+    let bestGap = -1, bestMid = ys[0];
+    for(let i=0;i<ys.length-1;i++){
+      const gap = ys[i+1] - ys[i];
+      if(gap > bestGap){ bestGap = gap; bestMid = (ys[i]+ys[i+1])/2; }
+    }
+    // The open space above the first / below the last target counts as a
+    // gap too — otherwise a tight cluster of targets would never place the
+    // new one anywhere but squeezed between two existing ones.
+    const topGap = ys[0] - MARGIN;
+    const bottomGap = (H - MARGIN) - ys[ys.length-1];
+    if(topGap > bestGap){ bestGap = topGap; bestMid = ys[0] - topGap/2; }
+    if(bottomGap > bestGap){ bestGap = bottomGap; bestMid = ys[ys.length-1] + bottomGap/2; }
+    return { x: baseX, y: bestMid };
+  }
+
+  // Connects ONE new source node into an already-built stage, using the
+  // same degree rules buildStageLines uses for every other node — so the
+  // new target's own connections read as if it had always been part of the
+  // generation, free to reuse existing downstream nodes (and their existing
+  // onward connections) rather than needing a separate, isolated route.
+  // Only ever adds edges — never touches any existing node's connections.
+  function connectNewTargetIntoLayer(newFromIndex, newFromPt, toPts, existingEdges){
+    const maxDegree = MAX_DEGREE[compositionMode];
+    const maxInDegree = MAX_IN_DEGREE[compositionMode];
+    const T = toPts.length;
+    const toDeg = new Array(T).fill(0);
+    existingEdges.forEach(e => { toDeg[e.dstIndex]++; });
+
+    function randomBow(){
+      if(shapeMode === 'radial'){
+        const baseBow = radialOuterRadius * 0.07;
+        const extraBow = compositionMode === 'complex' ? radialOuterRadius * 0.14 : 0;
+        return (Math.random()-0.5) * 2 * (baseBow + extraBow);
+      }
+      return compositionMode === 'complex' ? (Math.random()-0.5)*260 : 0;
+    }
+    function makeEdge(ti){
+      return {
+        x0: newFromPt.x, y0: newFromPt.y,
+        x1: toPts[ti].x, y1: toPts[ti].y,
+        bow: randomBow(),
+        srcIndex: newFromIndex, dstIndex: ti
+      };
+    }
+
+    const newEdges = [];
+    const taken = new Set();
+    function tryConnect(ti){
+      if(taken.has(ti) || toDeg[ti] >= maxInDegree) return false;
+      taken.add(ti);
+      toDeg[ti]++;
+      newEdges.push(makeEdge(ti));
+      return true;
+    }
+    const degree = compositionMode === 'complex'
+      ? Math.min(T, Math.max(1, maxDegree - Math.floor(Math.random()*2)))
+      : Math.min(T, 1 + Math.floor(Math.random()*maxDegree));
+    shuffleArr(Array.from({length:T}, (_,i)=>i)).some(ti => {
+      if(newEdges.length >= degree) return true;
+      tryConnect(ti);
+      return false;
+    });
+    // guarantee at least one connection, same as buildStageLines
+    if(newEdges.length === 0){
+      const underCap = shuffleArr(Array.from({length:T}, (_,i)=>i)).filter(ti => toDeg[ti] < maxInDegree);
+      const ti = underCap.length ? underCap[0] : Math.floor(Math.random()*T);
+      newEdges.push(makeEdge(ti));
+    }
+    return newEdges;
+  }
+
+  // Adds one extra target on top of whatever's currently laid out, without
+  // disturbing any existing node's position or connections — see
+  // computeGapFillTargetPosition/connectNewTargetIntoLayer above. Snapshots
+  // the pre-mutation state first so removeExtraTarget can restore it
+  // exactly when the checkbox is turned back off.
+  function applyExtraTarget(){
+    // Not applicable to Single-node shape: its sources aren't "targets" in
+    // the degree-capped sense this connects into, and the whole point of
+    // the shape is every source connecting fully to the one shared node.
+    if(shapeMode === 'single') return;
+    if(layers.length < 2) return;
+    extraTargetSnapshot = {
+      targetPts: layers[0].map(p => ({...p})),
+      stage0Edges: stageLines[0].map(e => ({...e})),
+    };
+    const newPt = computeGapFillTargetPosition(layers[0]);
+    layers[0] = [...layers[0], newPt];
+    const newIndex = layers[0].length - 1;
+    const newEdges = connectNewTargetIntoLayer(newIndex, newPt, layers[1], stageLines[0]);
+    stageLines[0] = [...stageLines[0], ...newEdges];
+
+    lines = stageLines.flat();
+    nodeArrivalTimes = computeNodeArrivalTimes();
+    singlePathway = computeSinglePathway();
+  }
+
+  function removeExtraTarget(){
+    if(!extraTargetSnapshot) return;
+    layers[0] = extraTargetSnapshot.targetPts;
+    stageLines[0] = extraTargetSnapshot.stage0Edges;
+    extraTargetSnapshot = null;
+
+    lines = stageLines.flat();
+    nodeArrivalTimes = computeNodeArrivalTimes();
+    singlePathway = computeSinglePathway();
+  }
+
+  // Propagates each target's own staggered start (TARGET_PHASE_SPREAD)
+  // forward through the graph as a UNION of arrival times rather than
+  // collapsing to whichever upstream path gets there first — see the
+  // nodeArrivalTimes declaration above for why a node fed by several
+  // targets needs to keep every distinct arrival instead of just the
+  // earliest one (otherwise every pathway would read as in-sync by the
+  // time it reaches shared downstream nodes).
+  function computeNodeArrivalTimes(){
+    const stageFrac = STAGE_DUR / CYCLE;
+    const times = [layers[0].map(() => [Math.random() * TARGET_PHASE_SPREAD * stageFrac])];
+    for(let li=1; li<layers.length; li++){
+      const layerTimes = layers[li].map(() => new Set());
+      stageLines[li-1].forEach(l => {
+        times[li-1][l.srcIndex].forEach(t => layerTimes[l.dstIndex].add(t + stageFrac));
+      });
+      // every node is guaranteed at least one incoming edge (see
+      // buildStageLines), so an empty set should never survive — but fall
+      // back to the plain per-layer baseline defensively rather than
+      // propagate a broken animation time.
+      times.push(layerTimes.map(set => set.size ? Array.from(set) : [li*stageFrac]));
+    }
+    return times;
+  }
+
+  // sparse bipartite connections between one layer's points and the next's:
+  // each node picks 1..maxDegree partners (2 for Simple, up to 5 for
+  // Complex — a function of compositionMode only), then any node left with
+  // zero connections gets one forced connection so nothing ends up orphaned.
+  //
+  // fromLanes (optional) tags each "from" node with the target-lane it
+  // belongs to — for layer 0 that's just its own target index, and for
+  // every layer after that it's whatever this same function returned as
+  // `toLanes` for the previous stage. A "to" node's lane is decided lazily,
+  // the first time anything connects to it, and never changes afterward —
+  // real lineage inherited from whichever upstream node claimed it first,
+  // not an arbitrary per-layer label. Candidates are ranked so a "from"
+  // node prefers (in order): a "to" node already claimed by its own lane,
+  // then any still-unclaimed "to" node (free territory to colonize into
+  // its lane), then a "to" node already claimed by a different lane. That
+  // keeps each target's reach concentrated in its own lineage through many
+  // stages instead of diffusing across the whole layer the way a purely
+  // local/distance-based bias would over a long chain. In-degree is also
+  // capped at exactly 1 per node whenever lanes are active — deep chains
+  // (Complex runs 9-10 stages) mean even a small per-stage convergence
+  // allowance compounds into full saturation within just a few hops,
+  // because reachability only ever grows, never shrinks, hop over hop; a
+  // strict one-parent-per-node rule turns each stage into a clean
+  // partition instead, so a target's reach stays a bounded subset no
+  // matter how deep the chain runs. isFinalStage (the last, TF→DEG
+  // transition) relaxes that to 2 incoming edges — real, visible overlap
+  // exactly where it matters most (shared DEGs), without reopening the
+  // deep-chain compounding problem since it's only the very last hop.
+  function buildStageLines(fromPts, toPts, fromLanes, isFinalStage){
+    const F = fromPts.length, T = toPts.length;
+    const maxDegree = MAX_DEGREE[compositionMode];
+    const maxInDegree = fromLanes ? (isFinalStage ? 2 : 1) : MAX_IN_DEGREE[compositionMode];
+    const fromDeg = new Array(F).fill(0);
+    const toDeg = new Array(T).fill(0);
+    const toLaneOf = new Array(T).fill(null);
+    const seen = new Set();
+    const edges = [];
+
+    function laneOrderedCandidates(fi){
+      const all = shuffleArr(Array.from({length:T}, (_,i)=>i));
+      if(!fromLanes) return all;
+      const lane = fromLanes[fi];
+      const rank = (ti) => toLaneOf[ti] === lane ? 0 : (toLaneOf[ti] === null ? 1 : 2);
+      // stable sort: `all` is already shuffled, so ties (same rank) stay in
+      // random order rather than always favoring lower indices.
+      return all.slice().sort((a,b) => rank(a)-rank(b));
+    }
+
+    function connectEdge(fi, ti){
+      seen.add(fi+'-'+ti);
+      edges.push([fi, ti]);
+      fromDeg[fi]++; toDeg[ti]++;
+      if(fromLanes && toLaneOf[ti] === null) toLaneOf[ti] = fromLanes[fi];
+    }
+
+    function tryConnect(fi, ti){
+      const key = fi + '-' + ti;
+      if(seen.has(key) || fromDeg[fi] >= maxDegree || toDeg[ti] >= maxInDegree) return false;
+      connectEdge(fi, ti);
+      return true;
+    }
+
+    // Used only once every node is already at its degree cap and a
+    // connection still needs to be forced (so nothing ends up orphaned).
+    // Picks whichever partner currently has the FEWEST edges rather than a
+    // random one, so any unavoidable overflow past the cap spreads out
+    // instead of piling onto a single node — which would recreate exactly
+    // the "everything converges on one point" look the caps exist to avoid.
+    function leastLoadedPartner(size, deg, isTaken){
+      const order = shuffleArr(Array.from({length:size}, (_,i)=>i)).sort((a,b) => deg[a]-deg[b]);
+      return order.find(idx => !isTaken(idx)) ?? order[0];
+    }
+
+    // each "from" node picks between 1 and maxDegree partners — Complex
+    // skews toward the top of that range (mostly maxDegree or one less) so
+    // the mesh stays dense throughout instead of averaging out sparse.
+    //
+    // RULE: this happens in two passes when lanes are in play. A single
+    // shuffled pass, where whichever from-node happens to go first can
+    // claim its *entire* desired degree from the still-fully-unclaimed to
+    // layer, starves every other lane of a foothold — with a wide layer and
+    // few lanes (Complex's defaults), the first couple of movers can claim
+    // the whole layer before anyone else gets a turn, forcing every other
+    // lane into cross-lane fallbacks. So: pass 1 gives every from-node
+    // exactly one pick, round-robin, guaranteeing every lane represented in
+    // this layer secures at least one node of its own before pass 2 lets
+    // anyone grow beyond that. Cross-lane connections are further capped at
+    // CROSS_LANE_BUDGET per node even if `degree` isn't otherwise met — a
+    // from-node whose lane has no room left just ends up with a lower
+    // degree than the ideal, rather than bleeding into other targets'
+    // territory to hit it.
+    const CROSS_LANE_BUDGET = 1;
+    const fromOrder = shuffleArr(Array.from({length:F}, (_,i)=>i));
+    if(fromLanes){
+      fromOrder.forEach(fi => {
+        for(const ti of laneOrderedCandidates(fi)){
+          if(tryConnect(fi, ti)) break;
+        }
+      });
+    }
+    fromOrder.forEach(fi => {
+      const degree = compositionMode === 'complex'
+        ? Math.min(T, Math.max(1, maxDegree - Math.floor(Math.random() * 2)))
+        : Math.min(T, 1 + Math.floor(Math.random() * maxDegree));
+      const candidates = laneOrderedCandidates(fi);
+      let picked = fromDeg[fi], crossLaneBudget = fromLanes ? CROSS_LANE_BUDGET : Infinity;
+      for(const ti of candidates){
+        if(picked >= degree) break;
+        const isCrossLane = fromLanes && toLaneOf[ti] !== null && toLaneOf[ti] !== fromLanes[fi];
+        if(isCrossLane && crossLaneBudget <= 0) continue;
+        if(tryConnect(fi, ti)){
+          picked++;
+          if(isCrossLane) crossLaneBudget--;
+        }
+      }
+    });
+
+    // guarantee every "to" node has at least one connection — prefer a
+    // same-lane "from" node first so this fallback doesn't itself blur the
+    // lanes the pass above just established.
+    shuffleArr(Array.from({length:T}, (_,i)=>i)).forEach(ti => {
+      if(toDeg[ti] > 0) return;
+      const lane = toLaneOf[ti];
+      const allUnderCap = shuffleArr(Array.from({length:F}, (_,i)=>i)).filter(fi => fromDeg[fi] < maxDegree);
+      const sameLaneUnderCap = lane != null ? allUnderCap.filter(fi => fromLanes[fi] === lane) : [];
+      const underCap = sameLaneUnderCap.length ? sameLaneUnderCap : allUnderCap;
+      if(underCap.length){ tryConnect(underCap[0], ti); return; }
+      // structurally forced (e.g. a single first-layer node reaching
+      // several next-layer nodes) — connect anyway, just past the usual
+      // cap, onto whichever "from" node has spare capacity least often used.
+      const fi = leastLoadedPartner(F, fromDeg, i => seen.has(i+'-'+ti));
+      const key = fi+'-'+ti;
+      if(!seen.has(key)) connectEdge(fi, ti);
+    });
+
+    // guarantee every "from" node has at least one connection — same idea.
+    // With the round-robin seeding pass above, this should rarely trigger;
+    // when it does, prefer whichever candidate is least loaded rather than
+    // an arbitrary shuffled one, so any unavoidable forced connection
+    // spreads out instead of piling onto whichever node happens first.
+    shuffleArr(Array.from({length:F}, (_,i)=>i)).forEach(fi => {
+      if(fromDeg[fi] > 0) return;
+      const lane = fromLanes ? fromLanes[fi] : null;
+      const allUnderCap = shuffleArr(Array.from({length:T}, (_,i)=>i)).filter(ti => toDeg[ti] < maxInDegree);
+      const sameLaneUnderCap = lane != null ? allUnderCap.filter(ti => toLaneOf[ti] === lane || toLaneOf[ti] === null) : [];
+      const underCap = (sameLaneUnderCap.length ? sameLaneUnderCap : allUnderCap).sort((a,b) => toDeg[a]-toDeg[b]);
+      if(underCap.length){ tryConnect(fi, underCap[0]); return; }
+      const ti = leastLoadedPartner(T, toDeg, i => seen.has(fi+'-'+i));
+      const key = fi+'-'+ti;
+      if(!seen.has(key)) connectEdge(fi, ti);
+    });
+
+    // RULE: every connection gets its own random bow (a perpendicular
+    // offset on its curve control point — see pathD below) so lines read as
+    // organic strings rather than rigid rulers. Linear only bows under
+    // Complex density (kept sparse/clean otherwise, matching the original
+    // "colored strings" look). Radial always bows at least a little
+    // regardless of density — a perfectly straight spoke reads as a
+    // technical diagram, not a cell — and bows noticeably more under
+    // Complex.
+    function randomBow(){
+      if(shapeMode === 'radial'){
+        const baseBow = radialOuterRadius * 0.07;
+        const extraBow = compositionMode === 'complex' ? radialOuterRadius * 0.14 : 0;
+        return (Math.random()-0.5) * 2 * (baseBow + extraBow);
+      }
+      return compositionMode === 'complex' ? (Math.random()-0.5)*260 : 0;
+    }
+    // srcIndex/dstIndex (the endpoints' positions within fromPts/toPts) are
+    // kept so render() can look up each node's own arrival times — see
+    // computeNodeArrivalTimes — needed to give each target its own staggered
+    // start instead of every pulse departing at the same instant.
+    //
+    // toLaneOf is handed back so the next stage can use it as its own
+    // fromLanes — any "to" node that somehow ended up unclaimed (shouldn't
+    // happen given the guarantees above, but just in case) falls back to
+    // its own index so it still propagates *some* lane forward.
+    return {
+      lines: edges.map(([fi,ti]) => ({
+        x0: fromPts[fi].x, y0: fromPts[fi].y,
+        x1: toPts[ti].x, y1: toPts[ti].y,
+        bow: randomBow(),
+        srcIndex: fi, dstIndex: ti
+      })),
+      lanes: toLaneOf.map((l,i) => l === null ? i : l)
+    };
+  }
+
+  // shared bezier path builder for a connection — used identically for the
+  // base line and its traveling glow pulse, so the two always match exactly.
+  //
+  // Linear: a cubic S-curve through the horizontal midpoint, optionally
+  // bowed (see buildStageLines above) — unchanged from before.
+  //
+  // Radial: a single quadratic control point offset perpendicular to the
+  // connection's own direction by `bow` (random per-edge, see
+  // buildStageLines). Direction-agnostic, so it works the same for a line
+  // running in any direction around the rings, unlike the old approach of
+  // pulling every line toward one shared point.
+  function pathD(l){
+    const mx = (l.x0+l.x1)/2, my = (l.y0+l.y1)/2;
+    const bow = l.bow || 0;
+    if(shapeMode === 'radial' || shapeMode === 'single'){
+      if(bow === 0) return `M${l.x0.toFixed(1)},${l.y0.toFixed(1)} L${l.x1.toFixed(1)},${l.y1.toFixed(1)}`;
+      const dx = l.x1-l.x0, dy = l.y1-l.y0;
+      const len = Math.hypot(dx,dy) || 1;
+      const px = -dy/len, py = dx/len; // unit vector perpendicular to the connection
+      const cx = mx + px*bow, cy = my + py*bow;
+      return `M${l.x0.toFixed(1)},${l.y0.toFixed(1)} Q${cx.toFixed(1)},${cy.toFixed(1)} ${l.x1.toFixed(1)},${l.y1.toFixed(1)}`;
+    }
+    return `M${l.x0.toFixed(1)},${l.y0.toFixed(1)} C${mx.toFixed(1)},${(l.y0+bow).toFixed(1)} ${mx.toFixed(1)},${(l.y1-bow).toFixed(1)} ${l.x1.toFixed(1)},${l.y1.toFixed(1)}`;
+  }
+
+  function updateCompositionHint(){
+    const el = document.getElementById('composition-hint');
+    if(!el) return;
+    if(shapeMode === 'single'){
+      const perGroup = LAYER_COUNTS[0] / SINGLE_GROUP_COUNT;
+      el.innerHTML = `<b>${SINGLE_GROUP_COUNT}</b> groups of <b>${perGroup}</b> lines each converge on one shared node — <b>${LAYER_COUNTS[0]}</b> lines total. "Nodes per layer" sets each group's size; "Layer spread" sets how tight each group's fan is.`;
+      return;
+    }
+    const chain = LAYER_COUNTS.join(' → ');
+    const maxDegree = MAX_DEGREE[compositionMode];
+    const totalUnattached = UNATTACHED_COUNTS.reduce((a,b) => a+b, 0);
+    const extraClause = totalUnattached > 0
+      ? ` Layers 2–${LAYER_COUNTS.length} also carry <b>${UNATTACHED_COUNTS.slice(1).join(', ')}</b> extra unattached nodes, shown hollow.`
+      : ' Every node is connected — none are left unattached.';
+    el.innerHTML = `<b>${LAYER_COUNTS.length}</b> node layers: <b>${chain}</b>, each node linking to at most <b>${maxDegree}</b> nodes in the next layer.${extraClause}`;
+  }
+
+  // ====================== RENDER ======================
+  // frameT (0–1, fraction of one CYCLE), when given, renders a static
+  // "freeze-frame" snapshot of the animation at that instant instead of
+  // live SMIL <animate> tags, and returns the composed markup string rather
+  // than writing it into the visible #stage — used by the video exporter to
+  // build each frame off-DOM without disturbing the live preview.
+  function render(frameT){
+    const thickness = 0.4 + parseFloat(document.getElementById('rng-thickness').value)/100 * 7.6;
+    const includeBg = document.getElementById('chk-include-bg').checked;
+    const opacityVar = parseFloat(document.getElementById('rng-opacityvar').value) / 100;
+    const animateOn = document.getElementById('chk-animate').checked;
+    const singlePathwayOn = document.getElementById('chk-single-pathway').checked;
+    const pathwayEdgeSet = singlePathway.edgeReachable;
+    // In single-pathway mode, a node's OTHER arrivals belong to targets
+    // being hidden — showing their pulses/flashes too would animate this
+    // target's subtree at moments that don't belong to it. Every node this
+    // target reaches at layer li is reached in exactly li hops (edges only
+    // connect adjacent layers), so they all share one deterministic arrival
+    // time — targetOffset + li*stageFrac (see computeNodeArrivalTimes) —
+    // which can be computed directly instead of filtering each node's full
+    // arrivals array.
+    const stageFrac = STAGE_DUR / CYCLE;
+    const pathwayArrival0 = singlePathwayOn ? nodeArrivalTimes[0][0][0] : null;
+    const flatOpacity = 0.82;
+
+    // RULE: the two category toggles behave differently on purpose.
+    // "Show target & DEG only" HIDES every protein/TF node outright, and
+    // never touches line opacity at all, so the connecting curves read as
+    // a single continuous, undimmed path running all the way from target
+    // to DEG (through wherever a now-hidden protein/TF node used to sit)
+    // rather than a route stitched together out of faded segments.
+    // "Show proteins & TFs only" instead FADES target/DEG nodes AND their
+    // lines to 20% opacity, keeping them visible as dim context.
+    // When both are on, every layer is exactly one of target/protein/TF/
+    // DEG, so between the two toggles every category is explicitly
+    // "shown" by one of them — nothing gets hidden or faded, which reads
+    // as "show everything" rather than a confusing double-negative.
+    const showTargetDegOnly = document.getElementById('chk-show-target-deg').checked;
+    const showProteinsTfsOnly = document.getElementById('chk-show-proteins-tfs').checked;
+    const FADE_OPACITY = 0.2;
+    // Layer 0 is always the target; the last layer is always the DEG; the
+    // second-to-last is the TFs; everything else in between is a protein.
+    function layerCategory(li){
+      const lastLayer = layers.length - 1;
+      if(li === 0) return 'target';
+      if(li === lastLayer) return 'deg';
+      if(li === lastLayer - 1) return 'tf';
+      return 'protein';
+    }
+    // Whether a node in this layer should be hidden entirely — only "Show
+    // target & DEG only" ever hides anything, and only when the other
+    // toggle isn't also active rescuing this category into "show everything".
+    function isLayerHidden(li){
+      if(!showTargetDegOnly) return false;
+      const cat = layerCategory(li);
+      if(cat === 'target' || cat === 'deg') return false;
+      return !showProteinsTfsOnly;
+    }
+    // Whether a node in this layer should be faded to 20% — only "Show
+    // proteins & TFs only" ever fades anything, same rescue rule as above.
+    function isLayerFaded(li){
+      if(!showProteinsTfsOnly) return false;
+      const cat = layerCategory(li);
+      if(cat === 'protein' || cat === 'tf') return false;
+      return !showTargetDegOnly;
+    }
+    // A line fades if EITHER endpoint layer would be faded — never hidden,
+    // since "Show target & DEG only" (the only hide-causing toggle) never
+    // touches line opacity at all.
+    function isLineFaded(li){
+      return isLayerFaded(li) || isLayerFaded(li+1);
+    }
+    function fadeWrap(markup, faded){
+      return faded ? `<g opacity="${FADE_OPACITY}">${markup}</g>` : markup;
+    }
+
+    const stops = GRADIENT_STOPS[currentPalette];
+    // RULE: one shared gradient, identical for every line.
+    // Linear: anchored to the full diagram's absolute x-span (layer 1 to
+    // the last layer) in userSpaceOnUse, so each stage's lines show only
+    // their own slice of the overall left-to-right color story instead of
+    // replaying the whole gradient.
+    // Radial: a radialGradient centered on the rings, running from the
+    // outer edge (first color, targets) to the center (last color,
+    // nucleus) — the color story now reads outside-in instead of left-right.
+    //
+    // Its 0%-stop (nucleus color) is placed at the focal point (fx/fy),
+    // separately from the circle defining the 100%-stop (cx/cy/r). Without
+    // this, both were pinned to the true canvas center — fine at zero
+    // Nucleus offset, but once the nucleus drifts (see generateLayout) the
+    // actual nucleus nodes move while the gradient's color-center didn't,
+    // so that region sampled colors from further out along the (unmoved)
+    // gradient — reading as the targets' color instead of the nucleus's.
+    // Setting fx/fy to radialNucleusFocus keeps the nucleus-colored end of
+    // the gradient following the nucleus itself.
+    let defs;
+    if(shapeMode === 'radial' || shapeMode === 'single'){
+      const reversedStops = stops.slice().reverse();
+      const stopMarkupR = reversedStops.map((c,i) => {
+        const env = OPACITY_ENVELOPE[i % OPACITY_ENVELOPE.length];
+        const op = flatOpacity*(1-opacityVar) + env*opacityVar;
+        return `<stop offset="${(i/(reversedStops.length-1)*100).toFixed(1)}%" stop-color="${c}" stop-opacity="${op.toFixed(2)}"/>`;
+      }).join('');
+      defs = `<radialGradient id="fw-shared" gradientUnits="userSpaceOnUse" cx="${radialCenter.x}" cy="${radialCenter.y}" r="${radialOuterRadius}" fx="${radialNucleusFocus.x}" fy="${radialNucleusFocus.y}">${stopMarkupR}</radialGradient>`;
+    } else {
+      const gradX0 = layerX[0], gradX1 = layerX[layerX.length-1];
+      const stopMarkup = stops.map((c,i) => {
+        const env = OPACITY_ENVELOPE[i % OPACITY_ENVELOPE.length];
+        const op = flatOpacity*(1-opacityVar) + env*opacityVar;
+        return `<stop offset="${(i/(stops.length-1)*100).toFixed(1)}%" stop-color="${c}" stop-opacity="${op.toFixed(2)}"/>`;
+      }).join('');
+      defs = `<linearGradient id="fw-shared" gradientUnits="userSpaceOnUse" x1="${gradX0}" y1="0" x2="${gradX1}" y2="0">${stopMarkup}</linearGradient>`;
+    }
+    if(animateOn){
+      defs += `<filter id="fw-glow" x="-80%" y="-80%" width="260%" height="260%"><feGaussianBlur stdDeviation="3.2" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>`;
+    }
+
+    // RULE: each layer's color is sampled off the shared gradient at that
+    // layer's position — e.g. an early layer lands near the purple stop, the
+    // last layer lands exactly on the final (orange) stop.
+    const layerColors = LAYER_COUNTS.map((_,i) => sampleGradient(stops, i/(LAYER_COUNTS.length-1)));
+    // RULE: Single-node shape colors by GROUP instead of by layer — every
+    // source shares layer 0, so the shared-gradient-by-layer scheme above
+    // would make them all one flat color, defeating the whole point of a
+    // "3 groups" visual. Sampled across the full gradient (0, 0.5, 1) so
+    // the 3 groups read as clearly distinct.
+    const groupColors = Array.from({length: SINGLE_GROUP_COUNT}, (_,g) => sampleGradient(stops, g/(SINGLE_GROUP_COUNT-1)));
+    function lineStrokeFor(l){
+      return shapeMode === 'single' ? groupColors[singleNodeGroups[l.srcIndex]] : 'url(#fw-shared)';
+    }
+
+    let paths = '';
+    stageLines.forEach((stage, li) => {
+      const lineFaded = isLineFaded(li);
+      stage.forEach((l) => {
+        if(singlePathwayOn && !pathwayEdgeSet.has(l)){
+          // RULE: an edge outside the isolated pathway still gets drawn,
+          // just hollow/dim — the same "nothing just vanishes" principle
+          // already used for unreached nodes below, extended to their
+          // connecting lines too. Without this, a hollow node's own edge
+          // simply disappeared, most noticeably with "Add an extra
+          // target": its one new edge was the only thing on the whole
+          // canvas that vanished outright when isolating a different
+          // target, making the added target look disconnected.
+          paths += `<path d="${pathD(l)}" fill="none" stroke="#ffffff" stroke-width="1" opacity="0.18"/>`;
+          return;
+        }
+        paths += fadeWrap(`<path d="${pathD(l)}" fill="none" stroke="${lineStrokeFor(l)}" stroke-width="${thickness.toFixed(2)}"/>`, lineFaded);
+      });
+    });
+
+    // RULE: an animated glow travels from the first layer to the last, sweeping
+    // along each line during that stage's window in the cycle — seamlessly,
+    // with each segment's pulse handing off to the next right at the shared
+    // node rather than vanishing and reappearing. Uses the exact same sparse
+    // edge list as the base lines above, so a pulse only ever travels where
+    // a line is actually drawn.
+    let pulseMk = '';
+    if(animateOn){
+      const DASH_LEN = 0.09;               // fraction of the segment's own length
+      const CROSSFADE = 0.045;              // fraction of the full cycle, for the handoff overlap
+      const PULSE_OPACITY = 0.5;            // translucent, not solid white
+      for(let li=0; li<stageLines.length; li++){
+        const lineFaded = isLineFaded(li);
+        stageLines[li].forEach(l => {
+          if(singlePathwayOn && !pathwayEdgeSet.has(l)) return;
+          // Each edge's own travel window(s) start exactly when its specific
+          // source node received a glow (nodeArrivalTimes[li][srcIndex] — one
+          // entry per distinct upstream target reaching that node) and each
+          // lasts one stage duration. A node fed by several pathways gets one
+          // independent pulse instance per arrival, so shared/downstream
+          // edges keep reading as distinct pathways instead of collapsing
+          // into a single synced flash. dash offset stays within the visible
+          // [0, -(1-DASH_LEN)] range the whole time, so it's exactly at the
+          // start node at t0 and exactly at the end node at t1 — never
+          // off-path, never invisible mid-sweep.
+          const arrivalsForEdge = singlePathwayOn ? [pathwayArrival0 + li*stageFrac] : nodeArrivalTimes[li][l.srcIndex];
+          arrivalsForEdge.forEach(t0 => {
+            const t1 = t0 + stageFrac;
+            const sweepPts = sweepPoints(t0, t1, 0, -(1-DASH_LEN));
+            const fadePts = pulseOpacityPoints(t0, t1, CROSSFADE, PULSE_OPACITY);
+            if(frameT != null){
+              const dashOffset = sampleEnvelopeAtT(sweepPts, frameT);
+              const op = sampleEnvelopeAtT(fadePts, frameT);
+              if(op <= 0.002) return; // skip invisible pulses to keep frame markup small
+              pulseMk += fadeWrap(`<path d="${pathD(l)}" fill="none" stroke="#ffffff" stroke-width="${(thickness*2.2).toFixed(2)}" stroke-linecap="round" pathLength="1" stroke-dasharray="${DASH_LEN} ${(1-DASH_LEN).toFixed(3)}" stroke-dashoffset="${dashOffset.toFixed(4)}" opacity="${op.toFixed(3)}" filter="url(#fw-glow)"/>`, lineFaded);
+              return;
+            }
+            const sweep = buildEnvelope(sweepPts);
+            const fade = buildEnvelope(fadePts);
+            pulseMk += fadeWrap(`<path d="${pathD(l)}" fill="none" stroke="#ffffff" stroke-width="${(thickness*2.2).toFixed(2)}" stroke-linecap="round" pathLength="1" stroke-dasharray="${DASH_LEN} ${(1-DASH_LEN).toFixed(3)}" filter="url(#fw-glow)"><animate attributeName="stroke-dashoffset" keyTimes="${sweep.keyTimes}" values="${sweep.values}" dur="${CYCLE}s" repeatCount="indefinite"/><animate attributeName="opacity" keyTimes="${fade.keyTimes}" values="${fade.values}" dur="${CYCLE}s" repeatCount="indefinite"/></path>`, lineFaded);
+          });
+        });
+      }
+    }
+
+    let nodesMk = '';
+    const COLOR_HOLD = 0.32; // fraction of cycle a node stays tinted before reverting to white
+    const sizeScale = parseFloat(document.getElementById('rng-nodesize').value) / 50; // 0.1–5×, default 1×
+    // RULE: "Keep node colors on permanently" fixes every node's fill at
+    // its layer color instead of flashing on and fading back to white — the
+    // radius bump (when animated) still plays normally, only the fill
+    // animation is skipped, since there's nothing to animate toward.
+    const permanentColors = document.getElementById('chk-permanent-colors').checked;
+
+    function diamondPoints(cx, cy, r){
+      return `${cx.toFixed(1)},${(cy-r).toFixed(1)} ${(cx+r).toFixed(1)},${cy.toFixed(1)} ${cx.toFixed(1)},${(cy+r).toFixed(1)} ${(cx-r).toFixed(1)},${cy.toFixed(1)}`;
+    }
+    // DEGs (the last layer) render as squares — r is the half-side length,
+    // so a square at the same r as a circle reads slightly bigger (4r² vs
+    // πr² of area), a reasonable "this is a distinct, terminal kind of
+    // node" cue without needing a separate scale factor like the diamond's.
+    function squarePoints(cx, cy, r){
+      return `${(cx-r).toFixed(1)},${(cy-r).toFixed(1)} ${(cx+r).toFixed(1)},${(cy-r).toFixed(1)} ${(cx+r).toFixed(1)},${(cy+r).toFixed(1)} ${(cx-r).toFixed(1)},${(cy+r).toFixed(1)}`;
+    }
+    // A diamond inscribed at "radius" r has about 64% the visual area of a
+    // circle of the same radius (2r² vs πr²), so at matching r it reads as
+    // noticeably smaller — scale the diamond's radius up to compensate and
+    // read as clearly bigger than the circles, not just equal.
+    const DIAMOND_SCALE = 1.4;
+    // RULE: targets are the start of the flow, not a stop the glow passes
+    // through, so their size cue reads differently from downstream nodes'
+    // bump-up pulse. Each cycle they begin oversized (DIAMOND_PRESS_PEAK×)
+    // and visibly press down to resting size by DIAMOND_PRESS_WIDTH — a
+    // "press that kicks off the cascade" rather than a reaction to one.
+    const DIAMOND_PRESS_PEAK = 1.8;
+    const DIAMOND_PRESS_WIDTH = 0.35;
+
+    layers.forEach((layer, li) => {
+      const layerLitColor = layerColors[li];
+      const haloR = 9*sizeScale, dotR = 4*sizeScale;
+      const diamondHaloR = haloR*DIAMOND_SCALE, diamondDotR = dotR*DIAMOND_SCALE;
+      layer.forEach((pt, ptIndex) => {
+        // RULE: rather than touching every branch below (there are many
+        // return points across the animate/frameT/permanentColors
+        // combinations), wrap the WHOLE per-node body in try/finally and
+        // retroactively fade-wrap whatever markup it appended — a `return`
+        // inside a try block still runs `finally` first, so this reaches
+        // every branch without editing any of them.
+        // Single-node shape colors sources by their group (see groupColors
+        // above), not by layer — every source shares layer 0.
+        const litColor = (shapeMode === 'single' && li === 0) ? groupColors[singleNodeGroups[ptIndex]] : layerLitColor;
+        const baseFill = permanentColors ? litColor : '#ffffff';
+        const nodesMkStart = nodesMk.length;
+        const hidden = isLayerHidden(li);
+        const faded = isLayerFaded(li);
+        try{
+        const x = pt.x, y = pt.y;
+        // RULE: single-pathway mode isolates one target's own subtree —
+        // every node NOT reachable from it (every other target, and every
+        // downstream node only reachable through a now-hidden target) still
+        // gets drawn, just as a hollow outline (identical style to the
+        // "unattached" nodes below) rather than vanishing outright, so the
+        // rest of the diagram still reads as a skeleton behind the
+        // highlighted route instead of leaving empty gaps.
+        if(singlePathwayOn && !singlePathway.nodeReachable[li].has(ptIndex)){
+          // Same radii as the "unattached" nodes below, for a consistent
+          // hollow-outline look regardless of why a node isn't lit up.
+          const outlineHaloR = 7*sizeScale, outlineDotR = 3.4*sizeScale;
+          if(li === 0){
+            nodesMk += `<polygon points="${diamondPoints(x,y,outlineHaloR*DIAMOND_SCALE)}" fill="none" stroke="#ffffff" stroke-width="1" opacity="0.22"/>`;
+            nodesMk += `<polygon points="${diamondPoints(x,y,outlineDotR*DIAMOND_SCALE)}" fill="none" stroke="#ffffff" stroke-width="1.3" opacity="0.5"/>`;
+          } else if(li === layers.length - 1){
+            nodesMk += `<polygon points="${squarePoints(x,y,outlineHaloR)}" fill="none" stroke="#ffffff" stroke-width="1" opacity="0.22"/>`;
+            nodesMk += `<polygon points="${squarePoints(x,y,outlineDotR)}" fill="none" stroke="#ffffff" stroke-width="1.3" opacity="0.5"/>`;
+          } else {
+            nodesMk += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${outlineHaloR.toFixed(2)}" fill="none" stroke="#ffffff" stroke-width="1" opacity="0.22"/>`;
+            nodesMk += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${outlineDotR.toFixed(2)}" fill="none" stroke="#ffffff" stroke-width="1.3" opacity="0.5"/>`;
+          }
+          return;
+        }
+        // RULE: the very first layer's nodes render as diamonds, not
+        // circles — and each target gets its own fire time (see
+        // nodeArrivalTimes/TARGET_PHASE_SPREAD) instead of firing at t=0 in
+        // lockstep, so multiple targets visibly press/depart at different
+        // moments rather than simultaneously.
+        if(li === 0){
+          const targetArrivals = nodeArrivalTimes[0][ptIndex]; // always exactly one — a target's own start
+          if(!animateOn){
+            nodesMk += `<polygon points="${diamondPoints(x,y,diamondHaloR)}" fill="${baseFill}" opacity="0.14"/>`;
+            nodesMk += `<polygon points="${diamondPoints(x,y,diamondDotR)}" fill="${baseFill}" opacity="0.95"/>`;
+            return;
+          }
+          // multiArrivalPoints with an arrival of 0 starts at its "peak"
+          // value and presses down to "base" by bumpWidth; with an arrival
+          // >0 (a target whose fire time got staggered later) it instead
+          // ramps up FROM base and peaks (presses) exactly at that fire
+          // time, then settles — same shape, just centered on this target's
+          // own moment instead of always t=0. Live playback animates the
+          // polygon's "points" attribute directly between full point-list
+          // strings (browsers interpolate list-of-numbers attributes
+          // coordinate-by-coordinate, so this reads as a smooth press).
+          // Video-frame sampling can't reuse that string interpolation —
+          // sampleEnvelopeAtT would just hold one string or the other,
+          // producing a jump-cut — so it samples the underlying NUMERIC
+          // radius instead and builds the points string fresh from that,
+          // keeping the exported motion exactly as smooth as the live one.
+          if(frameT != null){
+            const haloR_t = sampleEnvelopeAtT(multiArrivalPoints(targetArrivals, DIAMOND_PRESS_WIDTH, diamondHaloR, diamondHaloR*DIAMOND_PRESS_PEAK), frameT);
+            const dotR_t = sampleEnvelopeAtT(multiArrivalPoints(targetArrivals, DIAMOND_PRESS_WIDTH, diamondDotR, diamondDotR*DIAMOND_PRESS_PEAK), frameT);
+            const fill_t = permanentColors ? litColor : sampleEnvelopeAtT(multiArrivalPoints(targetArrivals, COLOR_HOLD, '#ffffff', litColor), frameT, true);
+            nodesMk += `<polygon points="${diamondPoints(x,y,haloR_t)}" fill="${fill_t}" opacity="0.14" filter="url(#fw-glow)"/>`;
+            nodesMk += `<polygon points="${diamondPoints(x,y,dotR_t)}" fill="${fill_t}" opacity="0.95"/>`;
+            return;
+          }
+          const haloPressEnv = buildEnvelope(multiArrivalPoints(targetArrivals, DIAMOND_PRESS_WIDTH, diamondPoints(x,y,diamondHaloR), diamondPoints(x,y,diamondHaloR*DIAMOND_PRESS_PEAK)));
+          const dotPressEnv = buildEnvelope(multiArrivalPoints(targetArrivals, DIAMOND_PRESS_WIDTH, diamondPoints(x,y,diamondDotR), diamondPoints(x,y,diamondDotR*DIAMOND_PRESS_PEAK)));
+          const haloPressAnim = `<animate attributeName="points" keyTimes="${haloPressEnv.keyTimes}" values="${haloPressEnv.values}" dur="${CYCLE}s" repeatCount="indefinite"/>`;
+          const dotPressAnim = `<animate attributeName="points" keyTimes="${dotPressEnv.keyTimes}" values="${dotPressEnv.values}" dur="${CYCLE}s" repeatCount="indefinite"/>`;
+          if(permanentColors){
+            nodesMk += `<polygon points="${diamondPoints(x,y,diamondHaloR)}" fill="${litColor}" opacity="0.14" filter="url(#fw-glow)">${haloPressAnim}</polygon>`;
+            nodesMk += `<polygon points="${diamondPoints(x,y,diamondDotR)}" fill="${litColor}" opacity="0.95">${dotPressAnim}</polygon>`;
+            return;
+          }
+          const colorEnv = multiArrivalEnvelope(targetArrivals, COLOR_HOLD, '#ffffff', litColor);
+          const colorAnim = `<animate attributeName="fill" keyTimes="${colorEnv.keyTimes}" values="${colorEnv.values}" calcMode="discrete" dur="${CYCLE}s" repeatCount="indefinite"/>`;
+          nodesMk += `<polygon points="${diamondPoints(x,y,diamondHaloR)}" fill="#ffffff" opacity="0.14" filter="url(#fw-glow)">${haloPressAnim}${colorAnim}</polygon>`;
+          nodesMk += `<polygon points="${diamondPoints(x,y,diamondDotR)}" fill="#ffffff" opacity="0.95">${dotPressAnim}${colorAnim}</polygon>`;
+          return;
+        }
+        // RULE: the last layer's nodes render as squares — a distinct
+        // terminal shape for the DEGs — with the same arrival-driven
+        // bump/lit behavior as the regular circle nodes below. A square has
+        // no single numeric radius attribute to animate directly, so it
+        // uses a points-string animation (like the diamond above) instead
+        // of animating "r".
+        if(li === layers.length - 1){
+          const arrivals = singlePathwayOn ? [pathwayArrival0 + li*stageFrac] : nodeArrivalTimes[li][ptIndex];
+          if(!animateOn){
+            nodesMk += `<polygon points="${squarePoints(x,y,haloR)}" fill="${baseFill}" opacity="0.14"/>`;
+            nodesMk += `<polygon points="${squarePoints(x,y,dotR)}" fill="${baseFill}" opacity="0.95"/>`;
+            return;
+          }
+          if(frameT != null){
+            const haloR_t = sampleEnvelopeAtT(multiArrivalPoints(arrivals, 0.32, haloR, haloR*1.9), frameT);
+            const dotR_t = sampleEnvelopeAtT(multiArrivalPoints(arrivals, 0.32, dotR, dotR*1.65), frameT);
+            const fill_t = permanentColors ? litColor : sampleEnvelopeAtT(multiArrivalPoints(arrivals, COLOR_HOLD, '#ffffff', litColor), frameT, true);
+            nodesMk += `<polygon points="${squarePoints(x,y,haloR_t)}" fill="${fill_t}" opacity="0.14" filter="url(#fw-glow)"/>`;
+            nodesMk += `<polygon points="${squarePoints(x,y,dotR_t)}" fill="${fill_t}" opacity="0.95"/>`;
+            return;
+          }
+          const haloEnv = buildEnvelope(multiArrivalPoints(arrivals, 0.32, squarePoints(x,y,haloR), squarePoints(x,y,haloR*1.9)));
+          const dotEnv = buildEnvelope(multiArrivalPoints(arrivals, 0.32, squarePoints(x,y,dotR), squarePoints(x,y,dotR*1.65)));
+          const haloAnim = `<animate attributeName="points" keyTimes="${haloEnv.keyTimes}" values="${haloEnv.values}" dur="${CYCLE}s" repeatCount="indefinite"/>`;
+          const dotAnim = `<animate attributeName="points" keyTimes="${dotEnv.keyTimes}" values="${dotEnv.values}" dur="${CYCLE}s" repeatCount="indefinite"/>`;
+          if(permanentColors){
+            nodesMk += `<polygon points="${squarePoints(x,y,haloR)}" fill="${litColor}" opacity="0.14" filter="url(#fw-glow)">${haloAnim}</polygon>`;
+            nodesMk += `<polygon points="${squarePoints(x,y,dotR)}" fill="${litColor}" opacity="0.95">${dotAnim}</polygon>`;
+            return;
+          }
+          const colorEnv2 = multiArrivalEnvelope(arrivals, COLOR_HOLD, '#ffffff', litColor);
+          const colorAnim2 = `<animate attributeName="fill" keyTimes="${colorEnv2.keyTimes}" values="${colorEnv2.values}" calcMode="discrete" dur="${CYCLE}s" repeatCount="indefinite"/>`;
+          nodesMk += `<polygon points="${squarePoints(x,y,haloR)}" fill="#ffffff" opacity="0.14" filter="url(#fw-glow)">${haloAnim}${colorAnim2}</polygon>`;
+          nodesMk += `<polygon points="${squarePoints(x,y,dotR)}" fill="#ffffff" opacity="0.95">${dotAnim}${colorAnim2}</polygon>`;
+          return;
+        }
+        if(!animateOn){
+          nodesMk += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${haloR.toFixed(2)}" fill="${baseFill}" opacity="0.14"/>`;
+          nodesMk += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${dotR.toFixed(2)}" fill="${baseFill}" opacity="0.95"/>`;
+          return;
+        }
+        const arrivals = singlePathwayOn ? [pathwayArrival0 + li*stageFrac] : nodeArrivalTimes[li][ptIndex];
+        const haloBumpPts = multiArrivalPoints(arrivals, 0.32, haloR, haloR*1.9);
+        const dotBumpPts = multiArrivalPoints(arrivals, 0.32, dotR, dotR*1.65);
+        if(frameT != null){
+          const haloR_t = sampleEnvelopeAtT(haloBumpPts, frameT);
+          const dotR_t = sampleEnvelopeAtT(dotBumpPts, frameT);
+          const fill_t = permanentColors ? litColor : sampleEnvelopeAtT(multiArrivalPoints(arrivals, COLOR_HOLD, '#ffffff', litColor), frameT, true);
+          nodesMk += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${haloR_t.toFixed(2)}" fill="${fill_t}" opacity="0.14" filter="url(#fw-glow)"/>`;
+          nodesMk += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${dotR_t.toFixed(2)}" fill="${fill_t}" opacity="0.95"/>`;
+          return;
+        }
+        const haloEnv = buildEnvelope(haloBumpPts);
+        const dotEnv = buildEnvelope(dotBumpPts);
+        if(permanentColors){
+          nodesMk += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${haloR.toFixed(2)}" fill="${litColor}" opacity="0.14" filter="url(#fw-glow)"><animate attributeName="r" keyTimes="${haloEnv.keyTimes}" values="${haloEnv.values}" dur="${CYCLE}s" repeatCount="indefinite"/></circle>`;
+          nodesMk += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${dotR.toFixed(2)}" fill="${litColor}" opacity="0.95"><animate attributeName="r" keyTimes="${dotEnv.keyTimes}" values="${dotEnv.values}" dur="${CYCLE}s" repeatCount="indefinite"/></circle>`;
+          return;
+        }
+        // RULE: every node — including the source — only holds its color
+        // briefly when the glow passes, then reverts to white.
+        const colorEnv = multiArrivalEnvelope(arrivals, COLOR_HOLD, '#ffffff', litColor);
+        nodesMk += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${haloR.toFixed(2)}" fill="#ffffff" opacity="0.14" filter="url(#fw-glow)"><animate attributeName="r" keyTimes="${haloEnv.keyTimes}" values="${haloEnv.values}" dur="${CYCLE}s" repeatCount="indefinite"/><animate attributeName="fill" keyTimes="${colorEnv.keyTimes}" values="${colorEnv.values}" calcMode="discrete" dur="${CYCLE}s" repeatCount="indefinite"/></circle>`;
+        nodesMk += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${dotR.toFixed(2)}" fill="#ffffff" opacity="0.95"><animate attributeName="r" keyTimes="${dotEnv.keyTimes}" values="${dotEnv.values}" dur="${CYCLE}s" repeatCount="indefinite"/><animate attributeName="fill" keyTimes="${colorEnv.keyTimes}" values="${colorEnv.values}" calcMode="discrete" dur="${CYCLE}s" repeatCount="indefinite"/></circle>`;
+        } finally {
+          if(nodesMk.length > nodesMkStart){
+            if(hidden){
+              nodesMk = nodesMk.slice(0, nodesMkStart);
+            } else if(faded){
+              const added = nodesMk.slice(nodesMkStart);
+              nodesMk = nodesMk.slice(0, nodesMkStart) + fadeWrap(added, true);
+            }
+          }
+        }
+      });
+    });
+
+    // RULE: unattached nodes are visible but never touched by a line —
+    // drawn hollow and faint so they read as separate from the flow. Shown
+    // in single-pathway mode too, same as the other now-unreached nodes
+    // above — everything stays visible as either lit (on the isolated
+    // target's subtree) or hollow (not on it), nothing just vanishes.
+    unattached.forEach((pts, li) => {
+      const hidden = isLayerHidden(li);
+      const faded = isLayerFaded(li);
+      const isDeg = li === layers.length - 1;
+      pts.forEach(pt => {
+        if(hidden) return;
+        const mk = isDeg
+          ? `<polygon points="${squarePoints(pt.x,pt.y,7*sizeScale)}" fill="none" stroke="#ffffff" stroke-width="1" opacity="0.22"/>`
+            + `<polygon points="${squarePoints(pt.x,pt.y,3.4*sizeScale)}" fill="none" stroke="#ffffff" stroke-width="1.3" opacity="0.5"/>`
+          : `<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="${(7*sizeScale).toFixed(2)}" fill="none" stroke="#ffffff" stroke-width="1" opacity="0.22"/>`
+            + `<circle cx="${pt.x.toFixed(1)}" cy="${pt.y.toFixed(1)}" r="${(3.4*sizeScale).toFixed(2)}" fill="none" stroke="#ffffff" stroke-width="1.3" opacity="0.5"/>`;
+        nodesMk += fadeWrap(mk, faded);
+      });
+    });
+
+    // RULE: video export always forces a black background regardless of
+    // "Include black background in export" — that toggle exists for SVG
+    // export, where transparency is meaningful; a transparent video frame
+    // isn't (most video codecs/players don't handle alpha), so a missing
+    // background would just look wrong rather than "transparent".
+    const bg = (includeBg || frameT != null) ? `<rect x="0" y="0" width="${W}" height="${H}" fill="#000000"/>` : '';
+    const svgInner = `<defs>${defs}</defs>${bg}<g>${paths}</g><g>${pulseMk}</g><g>${nodesMk}</g>`;
+
+    if(frameT != null) return svgInner;
+
+    stage.setAttribute('viewBox', `0 0 ${W} ${H}`);
+    stage.innerHTML = svgInner;
+  }
+
+  function fullRegenerate(){
+    generateLayout();
+    // Any snapshot taken before this regenerate is now stale (the base
+    // layout it was meant to restore no longer exists) — if the extra
+    // target is still wanted, reapply it fresh on top of the new layout.
+    extraTargetSnapshot = null;
+    if(document.getElementById('chk-extra-target').checked) applyExtraTarget();
+    variationCount++;
+    badge.textContent = `variation ${variationCount}`;
+    render();
+  }
+
+  // ====================== EXPORT ======================
+  function serializeCurrentSVG(){
+    const clone = stage.cloneNode(true);
+    clone.removeAttribute('id');
+    return `<?xml version="1.0" encoding="UTF-8"?>\n` + new XMLSerializer().serializeToString(clone);
+  }
+
+  function download(filename, content, type){
+    const blob = new Blob([content], {type});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  // ====================== UI WIRING ======================
+  document.getElementById('btn-shuffle').addEventListener('click', fullRegenerate);
+
+  document.querySelectorAll('.swatch').forEach(btn=>{
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.swatch').forEach(b=>b.classList.remove('active'));
+      btn.classList.add('active');
+      currentPalette = btn.getAttribute('data-palette');
+      render();
+    });
+  });
+
+  document.getElementById('rng-targets').addEventListener('change', () => {
+    targetsCount = parseInt(document.getElementById('rng-targets').value, 10);
+    fullRegenerate();
+  });
+  document.getElementById('rng-targets').addEventListener('input', (e) => {
+    document.getElementById('val-targets').textContent = e.target.value;
+  });
+
+  document.getElementById('rng-layers').addEventListener('change', () => {
+    numLayers = parseInt(document.getElementById('rng-layers').value, 10);
+    fullRegenerate();
+  });
+  document.getElementById('rng-layers').addEventListener('input', (e) => {
+    document.getElementById('val-layers').textContent = e.target.value;
+  });
+
+  document.getElementById('rng-nodesperlayer').addEventListener('change', () => {
+    nodesPerLayer = parseInt(document.getElementById('rng-nodesperlayer').value, 10);
+    fullRegenerate();
+  });
+  document.getElementById('rng-nodesperlayer').addEventListener('input', (e) => {
+    document.getElementById('val-nodesperlayer').textContent = e.target.value;
+  });
+
+  document.getElementById('rng-layerspread').addEventListener('change', () => {
+    document.getElementById('val-layerspread').textContent = document.getElementById('rng-layerspread').value;
+    fullRegenerate();
+  });
+  document.getElementById('rng-layerspread').addEventListener('input', (e) => {
+    document.getElementById('val-layerspread').textContent = e.target.value;
+  });
+
+  // Nucleus offset actually moves node positions (every layer's ring
+  // center drifts toward it) — structural, like Targets/Layers above, so it
+  // needs a full regenerate rather than just a redraw.
+  document.getElementById('rng-nucleus-offx').addEventListener('change', () => {
+    fullRegenerate();
+  });
+  document.getElementById('rng-nucleus-offx').addEventListener('input', (e) => {
+    document.getElementById('val-nucleus-offx').textContent = e.target.value;
+  });
+  document.getElementById('rng-nucleus-offy').addEventListener('change', () => {
+    fullRegenerate();
+  });
+  document.getElementById('rng-nucleus-offy').addEventListener('input', (e) => {
+    document.getElementById('val-nucleus-offy').textContent = e.target.value;
+  });
+
+  document.getElementById('rng-nodesize').addEventListener('input', (e) => {
+    document.getElementById('val-nodesize').textContent = e.target.value;
+    render();
+  });
+
+  document.getElementById('rng-thickness').addEventListener('input', (e) => {
+    document.getElementById('val-thickness').textContent = e.target.value;
+    render();
+  });
+
+  document.getElementById('rng-opacityvar').addEventListener('input', (e) => {
+    document.getElementById('val-opacityvar').textContent = e.target.value;
+    render();
+  });
+
+  // RULE: wrap render in an arrow function rather than passing it directly
+  // as the listener — a raw DOM event handler receives the Event object as
+  // its first argument, which would land in render's own frameT parameter.
+  // Since an Event is never == null, render's "frameT != null -> just
+  // return the markup, don't touch the page" freeze-frame branch (used by
+  // the video exporter) would fire on every checkbox click and silently
+  // skip updating the visible diagram.
+  document.getElementById('chk-animate').addEventListener('change', () => render());
+  document.getElementById('chk-permanent-colors').addEventListener('change', () => render());
+  document.getElementById('chk-include-bg').addEventListener('change', () => render());
+  document.getElementById('chk-single-pathway').addEventListener('change', () => render());
+  document.getElementById('chk-show-target-deg').addEventListener('change', () => render());
+  document.getElementById('chk-show-proteins-tfs').addEventListener('change', () => render());
+  document.getElementById('chk-extra-target').addEventListener('change', () => {
+    if(document.getElementById('chk-extra-target').checked) applyExtraTarget();
+    else removeExtraTarget();
+    render();
+  });
+
+  document.getElementById('btn-export-one').addEventListener('click', () => {
+    download(`flow_weave_${variationCount}.svg`, serializeCurrentSVG(), 'image/svg+xml');
+  });
+
+  document.getElementById('btn-copy-svg').addEventListener('click', async () => {
+    const btn = document.getElementById('btn-copy-svg');
+    const original = btn.textContent;
+    try{
+      await navigator.clipboard.writeText(serializeCurrentSVG());
+      btn.textContent = 'Copied ✓';
+    }catch(err){
+      const ta = document.createElement('textarea');
+      ta.value = serializeCurrentSVG();
+      ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try{ document.execCommand('copy'); btn.textContent = 'Copied ✓'; }
+      catch(err2){ btn.textContent = 'Copy failed'; }
+      document.body.removeChild(ta);
+    }
+    setTimeout(()=>{ btn.textContent = original; }, 1500);
+  });
+
+  document.getElementById('btn-export-batch').addEventListener('click', async () => {
+    const n = Math.max(1, Math.min(30, parseInt(document.getElementById('num-batch').value) || 1));
+    const progress = document.getElementById('progress');
+    const zip = new JSZip();
+    for(let i=1;i<=n;i++){
+      progress.textContent = `Generating ${i} / ${n}…`;
+      await new Promise(r=>setTimeout(r,0));
+      fullRegenerate();
+      zip.file(`flow_weave_${String(i).padStart(2,'0')}.svg`, serializeCurrentSVG());
+    }
+    progress.textContent = 'Zipping…';
+    const blob = await zip.generateAsync({type:'blob'});
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'flow_weave_variations.zip';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    progress.textContent = `Done — ${n} files exported.`;
+    setTimeout(()=>{ progress.textContent=''; }, 4000);
+  });
+
+  // ====================== VIDEO EXPORT ======================
+  // Records the current composition's animation loop to a video file.
+  // Rather than trying to capture the live SMIL-driven SVG (there's no
+  // reliable cross-browser way to read a running SMIL animation's current
+  // value), each frame is rendered independently via render(frameT) — a
+  // static snapshot of the exact same animation math at that instant — then
+  // rasterized to a canvas.
+  //
+  // Two capture strategies:
+  //   1. Standard (default) — canvas.captureStream()+MediaRecorder, using
+  //      only native browser APIs: Chrome/Edge's own MediaRecorder mixes
+  //      straight to MP4 (video/mp4;codecs=avc1), no external library. It's
+  //      real-time-bound: MediaRecorder has no notion of "this frame
+  //      belongs at t=X", it just records however long it's running. A
+  //      dense diagram can take longer than 1/fps to render+rasterize a
+  //      frame, so the loop below paces itself off a real-time budget
+  //      rather than a fixed frame count — otherwise the recording session
+  //      would run long and the clip would play back in slow motion.
+  //      Resolution/bitrate stay modest here because pushing them further
+  //      risks a DIFFERENT failure mode: under real-time encoder
+  //      backpressure, frames get dropped outright, silently TRUNCATING the
+  //      clip instead of just looking worse. Its `videoBitsPerSecond` is
+  //      also only ever a HINT per spec — the encoder can (and on thin
+  //      lines over a mostly-black background, often does) quietly spend
+  //      far less than requested, because that content "compresses
+  //      efficiently" by a rate-distortion metric that doesn't match how
+  //      visually blurry/blocky the result actually looks. There's no
+  //      `bitrateMode` knob on MediaRecorder to force it — that control
+  //      only exists on strategy 2 below.
+  //   2. Experimental (opt-in) — WebCodecs (VideoEncoder + webm-muxer).
+  //      Each frame is handed to the encoder with an explicit timestamp
+  //      computed from its own frame index, not wall-clock time, so the
+  //      muxed file's duration is correct by construction regardless of how
+  //      long encoding actually takes — which is what allows exporting at
+  //      full native resolution instead of the 1080px cap, AND setting
+  //      `bitrateMode: 'constant'`, which forces the encoder to actually
+  //      spend the full requested bitrate instead of deciding it doesn't
+  //      need to. The tradeoff: this relies on the browser's own WebCodecs
+  //      video encoder directly, and testing found at least one real
+  //      environment where that encoder gets progressively — sometimes
+  //      drastically — slower as the frame count climbs, for reasons
+  //      outside this app's control. That's why it's opt-in with a warning
+  //      rather than the default, why it always outputs WebM (muxing to MP4
+  //      from raw encoded chunks without a library is a much bigger job
+  //      than reusing the small webm-muxer library), and why the export
+  //      button turns into a Cancel button while it runs.
+  const VIDEO_FPS = 30;
+  const VIDEO_MAX_DIM = 1080; // standard path — see capture strategy 1 above
+  const VIDEO_BITRATE = 20_000_000; // standard path — a hint the encoder may still undercut, see above
+  const VIDEO_MIME_CANDIDATES = ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4'];
+  const VIDEO_MAX_DIM_EXPERIMENTAL = 1920; // experimental path — see capture strategy 2 above
+  // RULE: the target bitrate scales with resolution (bits per pixel per
+  // frame) rather than a flat number, so a smaller canvas doesn't get an
+  // absurdly excessive target and a larger one doesn't get starved. Since
+  // bitrateMode:'constant' actually forces the encoder to spend it, pushing
+  // this higher only risks slower encoding (mitigated by Cancel export),
+  // not truncation — unlike the standard path's ceiling above.
+  const VIDEO_BITS_PER_PIXEL_PER_FRAME = 0.8;
+  const VIDEO_MIN_BITRATE_EXPERIMENTAL = 15_000_000, VIDEO_MAX_BITRATE_EXPERIMENTAL = 80_000_000;
+
+  function svgFrameToImage(svgMarkup){
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.onload = () => resolve(img);
+      img.onerror = reject;
+      img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svgMarkup);
+    });
+  }
+
+  // RULE: video export follows the current on-screen zoom/pan instead of
+  // always exporting the full, unzoomed diagram — see
+  // computeVisibleCropViewBox below for how that crop is derived. `outW`/
+  // `outH` size the SVG's own width/height attributes (not just the final
+  // canvas draw size) so a zoomed-in crop still rasterizes at the target
+  // output resolution instead of the crop's native (much smaller, once
+  // zoomed) viewBox unit count — otherwise a tight zoom would come out
+  // blurry no matter how high the export resolution is set.
+  function buildFrameSvgMarkup(frameT, crop, outW, outH){
+    const svgInner = render(frameT);
+    const vb = crop ? `${crop.x.toFixed(2)} ${crop.y.toFixed(2)} ${crop.w.toFixed(2)} ${crop.h.toFixed(2)}` : `0 0 ${W} ${H}`;
+    const w = outW || W, h = outH || H;
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" width="${w}" height="${h}">${svgInner}</svg>`;
+  }
+
+  // Maps the canvas-wrap's current visible screen rectangle back onto the
+  // diagram's own SVG viewBox coordinates, using the live, already-applied
+  // zoom/pan CSS transform on #zoom-card (see the ZOOM / PAN section) —
+  // getBoundingClientRect() reflects that transform automatically, however
+  // it was produced.
+  //
+  // RULE: only used once the user has actually zoomed or panned (see
+  // currentZoomState) — a full, untouched diagram that merely happens to
+  // be wider than the canvas-wrap at the current browser window size would
+  // otherwise get silently cropped to whatever sliver is on screen, when
+  // the whole point of the *default* export has always been "the entire
+  // diagram," independent of window size. Once the user has deliberately
+  // zoomed/panned, though, "export what I'm looking at" is exactly right.
+  function computeVisibleCropViewBox(){
+    if(currentZoomState.zoom === 1 && currentZoomState.panX === 0 && currentZoomState.panY === 0){
+      return { x: 0, y: 0, w: W, h: H };
+    }
+    const svgRect = document.getElementById('stage').getBoundingClientRect();
+    const wrapRect = document.getElementById('canvas-wrap').getBoundingClientRect();
+    if(svgRect.width <= 0 || svgRect.height <= 0) return { x: 0, y: 0, w: W, h: H };
+    const toX = (screenX) => (screenX - svgRect.left) / svgRect.width * W;
+    const toY = (screenY) => (screenY - svgRect.top) / svgRect.height * H;
+    const x0 = Math.max(0, Math.min(W, toX(wrapRect.left)));
+    const y0 = Math.max(0, Math.min(H, toY(wrapRect.top)));
+    const x1 = Math.max(0, Math.min(W, toX(wrapRect.right)));
+    const y1 = Math.max(0, Math.min(H, toY(wrapRect.bottom)));
+    return { x: x0, y: y0, w: Math.max(1, x1 - x0), h: Math.max(1, y1 - y0) };
+  }
+
+  class VideoExportCancelled extends Error {}
+
+  // Capture strategy 2 (experimental, opt-in) — see the RULE block above.
+  // Renders a fixed number of frames (not a real-time budget), assigning
+  // each an explicit timestamp from its own index, so the muxed file's
+  // duration is correct by construction rather than by keeping pace with a
+  // deadline. isCancelled() is polled between frames so a stuck/slow
+  // encoder can be bailed out of cleanly instead of hanging the page.
+  async function exportVideoWebCodecs({ outW, outH, totalSeconds, cycleMs, progress, canvas, ctx, isCancelled, crop }){
+    const bitrate = Math.round(Math.min(VIDEO_MAX_BITRATE_EXPERIMENTAL, Math.max(VIDEO_MIN_BITRATE_EXPERIMENTAL,
+      outW * outH * VIDEO_FPS * VIDEO_BITS_PER_PIXEL_PER_FRAME)));
+    // Try VP9 first (better compression at this bitrate), fall back to VP8
+    // for browsers/configs that support WebCodecs but not a VP9 encoder.
+    const codecCandidates = [
+      { codec: 'vp09.00.10.08', mkvCodecId: 'V_VP9' },
+      { codec: 'vp8', mkvCodecId: 'V_VP8' },
+    ];
+    let chosen = null;
+    for(const candidate of codecCandidates){
+      const config = { codec: candidate.codec, width: outW, height: outH, bitrate, framerate: VIDEO_FPS, bitrateMode: 'constant' };
+      const support = await VideoEncoder.isConfigSupported(config);
+      if(support.supported){ chosen = candidate; break; }
+    }
+    if(!chosen) throw new Error('no supported WebCodecs video codec found');
+
+    const muxer = new WebMMuxer.Muxer({
+      target: new WebMMuxer.ArrayBufferTarget(),
+      video: { codec: chosen.mkvCodecId, width: outW, height: outH, frameRate: VIDEO_FPS },
+    });
+    let encoderError = null;
+    const encoder = new VideoEncoder({
+      output: (chunk, meta) => muxer.addVideoChunk(chunk, meta),
+      error: (e) => { encoderError = e; },
+    });
+    encoder.configure({ codec: chosen.codec, width: outW, height: outH, bitrate, framerate: VIDEO_FPS, bitrateMode: 'constant' });
+
+    try{
+      const totalFrames = Math.max(1, Math.round(totalSeconds * VIDEO_FPS));
+      const frameDurationUs = 1e6 / VIDEO_FPS;
+      const KEYFRAME_INTERVAL = VIDEO_FPS * 2; // roughly one keyframe every 2s, for seekability
+      for(let i=0; i<totalFrames; i++){
+        if(isCancelled()) throw new VideoExportCancelled();
+        if(encoderError) throw encoderError;
+        const elapsedMs = i * (1000 / VIDEO_FPS);
+        const frameT = (elapsedMs % cycleMs) / cycleMs;
+        const img = await svgFrameToImage(buildFrameSvgMarkup(frameT, crop, outW, outH));
+        ctx.clearRect(0, 0, outW, outH);
+        ctx.drawImage(img, 0, 0, outW, outH);
+
+        // Backpressure: VideoEncoder queues encode work asynchronously —
+        // without this, a fast rendering loop feeding a slower encoder
+        // would pile up unbounded memory in queued VideoFrames.
+        while(encoder.encodeQueueSize > 4){
+          if(isCancelled()) throw new VideoExportCancelled();
+          await new Promise(r => setTimeout(r, 0));
+        }
+        const frame = new VideoFrame(canvas, { timestamp: Math.round(i * frameDurationUs) });
+        encoder.encode(frame, { keyFrame: i % KEYFRAME_INTERVAL === 0 });
+        frame.close();
+
+        progress.textContent = `Encoding video (experimental): frame ${i+1} / ${totalFrames} — click Cancel export if this stalls…`;
+        await new Promise(r => setTimeout(r, 0)); // yield so the UI (and Cancel button) stays responsive
+      }
+      await encoder.flush();
+      if(encoderError) throw encoderError;
+    } finally {
+      if(encoder.state !== 'closed') encoder.close();
+    }
+    muxer.finalize();
+    const { buffer } = muxer.target;
+    return { blob: new Blob([buffer], { type: 'video/webm' }), ext: 'webm', fpsNote: null };
+  }
+
+  // Capture strategy 1 (standard, default) — see the RULE block above.
+  async function exportVideoMediaRecorder({ outW, outH, totalSeconds, cycleMs, progress, canvas, ctx, isCancelled, crop }){
+    const stream = canvas.captureStream(VIDEO_FPS);
+    const [videoTrack] = stream.getVideoTracks();
+    const mimeType = VIDEO_MIME_CANDIDATES.find(m => MediaRecorder.isTypeSupported(m));
+    const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: VIDEO_BITRATE });
+    const chunks = [];
+    recorder.ondataavailable = (e) => { if(e.data && e.data.size) chunks.push(e.data); };
+    const stopped = new Promise((resolve) => { recorder.onstop = resolve; });
+
+    recorder.start();
+    const totalMs = totalSeconds * 1000;
+    const frameInterval = 1000 / VIDEO_FPS;
+    const startTime = performance.now();
+    let nextDrawTime = startTime;
+    let framesDrawn = 0;
+    let cancelled = false;
+    while(true){
+      if(isCancelled()){ cancelled = true; break; }
+      const now = performance.now();
+      const elapsed = now - startTime;
+      if(elapsed >= totalMs) break;
+      if(now < nextDrawTime){
+        await new Promise(r => setTimeout(r, Math.min(nextDrawTime - now, 50)));
+        continue;
+      }
+      const frameT = (elapsed % cycleMs) / cycleMs;
+      const img = await svgFrameToImage(buildFrameSvgMarkup(frameT, crop, outW, outH));
+      ctx.clearRect(0, 0, outW, outH);
+      ctx.drawImage(img, 0, 0, outW, outH);
+      videoTrack.requestFrame();
+      framesDrawn++;
+      nextDrawTime += frameInterval;
+      progress.textContent = `Recording video: ${(elapsed/1000).toFixed(1)}s / ${totalSeconds.toFixed(1)}s…`;
+      await new Promise(r => setTimeout(r, 0));
+    }
+    recorder.stop();
+    await stopped;
+    if(cancelled) throw new VideoExportCancelled();
+
+    const blob = new Blob(chunks, { type: mimeType });
+    const avgFps = (framesDrawn / totalSeconds).toFixed(1);
+    return { blob, ext: 'mp4', fpsNote: `~${avgFps}fps` };
+  }
+
+  // RULE: the export button doubles as a Cancel button while an export is
+  // running — set once here so a click during export can find and clear it
+  // instead of trying to start a second export.
+  let videoExportCancelRequested = false;
+  let videoExportInProgress = false;
+
+  document.getElementById('btn-export-video').addEventListener('click', async () => {
+    const progress = document.getElementById('progress');
+    const btn = document.getElementById('btn-export-video');
+
+    if(videoExportInProgress){
+      videoExportCancelRequested = true;
+      btn.textContent = 'Cancelling…';
+      btn.disabled = true;
+      return;
+    }
+
+    if(!document.getElementById('chk-animate').checked){
+      progress.textContent = 'Turn on "Animate glow" first — a video needs something to animate.';
+      setTimeout(()=>{ progress.textContent=''; }, 4000);
+      return;
+    }
+    const useExperimental = document.getElementById('chk-experimental-video').checked;
+    const hasWebCodecs = typeof VideoEncoder !== 'undefined' && typeof WebMMuxer !== 'undefined';
+    if(useExperimental && !hasWebCodecs){
+      progress.textContent = 'Experimental export needs a browser with WebCodecs support — uncheck it to use the standard export.';
+      setTimeout(()=>{ progress.textContent=''; }, 4000);
+      return;
+    }
+    if(!useExperimental && (typeof MediaRecorder === 'undefined' || !HTMLCanvasElement.prototype.captureStream)){
+      progress.textContent = 'Video export needs a browser with MediaRecorder + canvas.captureStream support (Chrome or Edge).';
+      setTimeout(()=>{ progress.textContent=''; }, 4500);
+      return;
+    }
+    if(!useExperimental && !VIDEO_MIME_CANDIDATES.some(m => MediaRecorder.isTypeSupported(m))){
+      progress.textContent = 'MP4 recording needs Chrome or Edge — this browser doesn\'t support it.';
+      setTimeout(()=>{ progress.textContent=''; }, 4500);
+      return;
+    }
+
+    const originalLabel = btn.textContent;
+    videoExportInProgress = true;
+    videoExportCancelRequested = false;
+    btn.textContent = 'Cancel export';
+    let canvas;
+
+    try{
+      const cycles = Math.max(1, Math.min(6, parseInt(document.getElementById('num-video-cycles').value) || 1));
+      const totalSeconds = CYCLE * cycles;
+      const cycleMs = CYCLE * 1000;
+      // RULE: export follows whatever's currently zoomed/panned into view,
+      // not always the full diagram — see computeVisibleCropViewBox. Taken
+      // once up front, before anything else touches the DOM, so it reflects
+      // exactly what was on screen when Export was clicked.
+      const crop = computeVisibleCropViewBox();
+      const isZoomedOrPanned = !(currentZoomState.zoom === 1 && currentZoomState.panX === 0 && currentZoomState.panY === 0);
+      const maxDim = useExperimental ? VIDEO_MAX_DIM_EXPERIMENTAL : VIDEO_MAX_DIM;
+      // RULE: the un-zoomed export never upscales past the diagram's own
+      // native size (min(1, ...) — matches the pre-existing behavior for
+      // the full diagram). But a zoomed-in crop's viewBox-unit dimensions
+      // can be tiny even though the user wants a full-resolution export of
+      // that view — so once actually zoomed, always scale UP to fill maxDim
+      // rather than capping at native size, or a tight zoom would export as
+      // a handful of pixels.
+      const scale = isZoomedOrPanned
+        ? maxDim / Math.max(crop.w, crop.h)
+        : Math.min(1, maxDim / Math.max(crop.w, crop.h));
+      const outW = Math.max(1, Math.round(crop.w*scale)), outH = Math.max(1, Math.round(crop.h*scale));
+
+      canvas = document.createElement('canvas');
+      canvas.width = outW; canvas.height = outH;
+      // RULE: some browsers only actually paint (and therefore only ever
+      // feed real frames into captureStream, or resolve VideoFrame source
+      // data) a canvas that's part of the rendered document — an off-DOM
+      // canvas can produce an essentially empty capture. Keep it in the
+      // layout but pushed off-screen (not display:none/visibility:hidden,
+      // which some browsers also skip painting for) so it's invisible
+      // without breaking capture.
+      canvas.style.cssText = 'position:fixed;left:-99999px;top:0;';
+      document.body.appendChild(canvas);
+      const ctx = canvas.getContext('2d');
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = 'high';
+
+      const isCancelled = () => videoExportCancelRequested;
+      const result = useExperimental
+        ? await exportVideoWebCodecs({ outW, outH, totalSeconds, cycleMs, progress, canvas, ctx, isCancelled, crop })
+        : await exportVideoMediaRecorder({ outW, outH, totalSeconds, cycleMs, progress, canvas, ctx, isCancelled, crop });
+
+      const url = URL.createObjectURL(result.blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `flow_weave_${variationCount}.${result.ext}`;
+      document.body.appendChild(a); a.click(); document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      progress.textContent = `Done — video exported (${cycles} loop${cycles>1?'s':''}${result.fpsNote ? `, ${result.fpsNote}` : ''}).`;
+      setTimeout(()=>{ progress.textContent=''; }, 4000);
+    } catch(err){
+      if(err instanceof VideoExportCancelled){
+        progress.textContent = 'Export cancelled.';
+        setTimeout(()=>{ progress.textContent=''; }, 3000);
+      } else {
+        progress.textContent = 'Video export failed: ' + (err && err.message ? err.message : err);
+      }
+    } finally {
+      if(canvas && canvas.parentNode) canvas.parentNode.removeChild(canvas);
+      videoExportInProgress = false;
+      videoExportCancelRequested = false;
+      btn.disabled = false;
+      btn.textContent = originalLabel;
+      render(); // restore the live animated preview after off-DOM frame rendering
+    }
+  });
+
+  document.getElementById('btn-comp-simple').addEventListener('click', () => setCompositionMode('simple'));
+  document.getElementById('btn-comp-complex').addEventListener('click', () => setCompositionMode('complex'));
+  document.getElementById('btn-style-structured').addEventListener('click', () => setStyleMode('structured'));
+  document.getElementById('btn-style-organic').addEventListener('click', () => setStyleMode('organic'));
+  document.getElementById('btn-shape-linear').addEventListener('click', () => setShapeMode('linear'));
+  document.getElementById('btn-shape-radial').addEventListener('click', () => setShapeMode('radial'));
+  document.getElementById('btn-shape-single').addEventListener('click', () => setShapeMode('single'));
+
+  // Pushes a composition preset's targets/layers/nodesPerLayer into state
+  // and reflects them on the sliders + their value readouts.
+  function applyCompositionPreset(preset){
+    targetsCount = preset.targets;
+    numLayers = preset.layers;
+    nodesPerLayer = preset.nodesPerLayer;
+    document.getElementById('rng-targets').value = targetsCount;
+    document.getElementById('val-targets').textContent = targetsCount;
+    document.getElementById('rng-layers').value = numLayers;
+    document.getElementById('val-layers').textContent = numLayers;
+    document.getElementById('rng-nodesperlayer').value = nodesPerLayer;
+    document.getElementById('val-nodesperlayer').textContent = nodesPerLayer;
+  }
+
+  // Density (Simple/Complex) and Style (Structured/Organic) are independent
+  // — each setter only ever touches its own axis, so all four combinations
+  // (Simple+Structured, Simple+Organic, Complex+Structured, Complex+Organic)
+  // are reachable and stay stable when the other axis changes.
+  function setCompositionMode(mode){
+    if(mode === compositionMode) return;
+    compositionMode = mode;
+    ['simple','complex'].forEach(m => {
+      document.getElementById('btn-comp-'+m).className = (m === mode) ? 'btn-primary' : 'btn-secondary';
+    });
+    ({ w: W, h: H } = currentCanvasSize());
+    computeLayerX();
+    // RULE: Density always resets Targets/Layers/Nodes-per-layer to its own
+    // preset — Simple to the clean standard composition, Complex to the
+    // dense one. Style never touches these sliders.
+    applyCompositionPreset(COMPOSITION_PRESETS[mode]);
+    fullRegenerate();
+  }
+
+  function setStyleMode(mode){
+    if(mode === styleMode) return;
+    styleMode = mode;
+    ['structured','organic'].forEach(m => {
+      document.getElementById('btn-style-'+m).className = (m === mode) ? 'btn-primary' : 'btn-secondary';
+    });
+    ({ w: W, h: H } = currentCanvasSize());
+    computeLayerX();
+    fullRegenerate();
+  }
+
+  // Shape (Linear/Radial/Single node) is independent of Density and Style
+  // too — it only changes how positions/curves are computed, never resets
+  // any slider.
+  function setShapeMode(mode){
+    if(mode === shapeMode) return;
+    shapeMode = mode;
+    ['linear','radial','single'].forEach(m => {
+      document.getElementById('btn-shape-'+m).className = (m === mode) ? 'btn-primary' : 'btn-secondary';
+    });
+    ({ w: W, h: H } = currentCanvasSize());
+    computeLayerX();
+    fullRegenerate();
+  }
+
+  // ====================== ZOOM / PAN ======================
+  // RULE: purely a viewport transform on the .card wrapper — never touches
+  // W/H, the SVG's own viewBox, or anything generateLayout/render produce,
+  // so zooming into a node is just "look closer," not a different layout.
+  // Wheel/trackpad-pinch always zooms (both report as 'wheel' — a trackpad
+  // pinch additionally sets ctrlKey, but zooming either way is exactly
+  // what's wanted here); left-drag always pans. Re-applied after every
+  // render() since that only rewrites the SVG's own innerHTML, never the
+  // wrapping .card's style, so the current view survives regenerates.
+  (function initZoomPan(){
+    const wrap = document.getElementById('canvas-wrap');
+    const card = document.getElementById('zoom-card');
+    const resetBtn = document.getElementById('btn-zoom-reset');
+    const MIN_ZOOM = 0.3, MAX_ZOOM = 12;
+    let zoom = 1, panX = 0, panY = 0;
+
+    function applyTransform(){
+      card.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
+      currentZoomState.zoom = zoom;
+      currentZoomState.panX = panX;
+      currentZoomState.panY = panY;
+    }
+
+    function zoomAt(clientX, clientY, factor){
+      const rect = wrap.getBoundingClientRect();
+      const mx = clientX - rect.left - rect.width/2;
+      const my = clientY - rect.top - rect.height/2;
+      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * factor));
+      const actual = newZoom / zoom;
+      panX = mx - (mx - panX) * actual;
+      panY = my - (my - panY) * actual;
+      zoom = newZoom;
+      applyTransform();
+    }
+
+    wrap.addEventListener('wheel', (e) => {
+      e.preventDefault();
+      zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0018));
+    }, { passive: false });
+
+    // Left-mouse drag to pan. Listens on window for move/up so a drag that
+    // leaves the canvas area mid-gesture doesn't get stuck "on".
+    let dragging = false, dragStart = null, panStart = null;
+    wrap.addEventListener('mousedown', (e) => {
+      if(e.button !== 0) return;
+      dragging = true;
+      dragStart = { x: e.clientX, y: e.clientY };
+      panStart = { x: panX, y: panY };
+      wrap.classList.add('dragging');
+    });
+    window.addEventListener('mousemove', (e) => {
+      if(!dragging) return;
+      panX = panStart.x + (e.clientX - dragStart.x);
+      panY = panStart.y + (e.clientY - dragStart.y);
+      applyTransform();
+    });
+    window.addEventListener('mouseup', () => {
+      dragging = false;
+      wrap.classList.remove('dragging');
+    });
+
+    // Touch: one finger pans, two fingers pinch-zoom (+ pan on the midpoint).
+    let touchMode = null, touchStart = null;
+    function touchMidpoint(touches){
+      return { x: (touches[0].clientX+touches[1].clientX)/2, y: (touches[0].clientY+touches[1].clientY)/2 };
+    }
+    function touchDist(touches){
+      return Math.hypot(touches[0].clientX-touches[1].clientX, touches[0].clientY-touches[1].clientY);
+    }
+    wrap.addEventListener('touchstart', (e) => {
+      if(e.touches.length === 1){
+        touchMode = 'pan';
+        touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY, panX, panY };
+      } else if(e.touches.length === 2){
+        touchMode = 'pinch';
+        touchStart = { dist: touchDist(e.touches), mid: touchMidpoint(e.touches), zoom, panX, panY };
+      }
+    }, { passive: true });
+    wrap.addEventListener('touchmove', (e) => {
+      if(touchMode === 'pan' && e.touches.length === 1){
+        e.preventDefault();
+        panX = touchStart.panX + (e.touches[0].clientX - touchStart.x);
+        panY = touchStart.panY + (e.touches[0].clientY - touchStart.y);
+        applyTransform();
+      } else if(touchMode === 'pinch' && e.touches.length === 2){
+        e.preventDefault();
+        const dist = touchDist(e.touches);
+        const factor = dist / touchStart.dist;
+        zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, touchStart.zoom * factor));
+        const mid = touchMidpoint(e.touches);
+        const rect = wrap.getBoundingClientRect();
+        const mx = mid.x - rect.left - rect.width/2, my = mid.y - rect.top - rect.height/2;
+        panX = touchStart.panX + (mid.x - touchStart.mid.x);
+        panY = touchStart.panY + (mid.y - touchStart.mid.y);
+        applyTransform();
+      }
+    }, { passive: false });
+    wrap.addEventListener('touchend', () => { touchMode = null; });
+
+    resetBtn.addEventListener('click', () => {
+      zoom = 1; panX = 0; panY = 0;
+      applyTransform();
+    });
+    wrap.addEventListener('dblclick', () => {
+      zoom = 1; panX = 0; panY = 0;
+      applyTransform();
+    });
+  })();
+
+  // ====================== INIT ======================
+  computeLayerX();
+  fullRegenerate();
+
+})();
+</script>
+</body>
+</html>
