@@ -247,6 +247,14 @@
         back where it started and plays seamlessly on repeat. Needs Chrome
         or Edge.
       </div>
+      <button class="btn-secondary" id="btn-export-html" style="margin-top:14px;">Export embeddable HTML</button>
+      <div class="hint" style="margin-top:4px; padding-top:0; border-top:none;">
+        Downloads a small, dependency-free HTML file with the current
+        view, colors, and motion settings baked in — no editor UI, no
+        video weight. The canvas fills its container responsively at a
+        1600:600 aspect ratio, so a developer can drop it straight into a
+        page. Hand this to them instead of an .mp4.
+      </div>
       <div class="progress-line" id="progress"></div>
     </div>
 
@@ -720,6 +728,223 @@
   }
   btnRes1x.addEventListener('click', () => setResScale(1));
   btnRes2x.addEventListener('click', () => setResScale(2));
+
+  // ====================== EMBEDDABLE HTML EXPORT ======================
+  // Produces a standalone, dependency-free HTML file with the current
+  // config baked in as data (CFG) — the editor UI, video exporter, and
+  // unused view branches never ship. The embed keeps all three renderers
+  // (rather than tree-shaking to just the active one) so this stays a
+  // straight copy of the live math with no risk of the two drifting apart.
+  // Written in ES5 var/function style, since we don't control what this
+  // file gets pasted next to on a third-party site.
+  function buildEmbedHTML(){
+    const cfg = {
+      view: viewMode,
+      lineColors: lineColors.slice(),
+      dotColors: dotColors.slice(),
+      bgColor, bgEnabled,
+      speedMult, thickness, dotRadius,
+      dotCount: DOTS.length,
+      glowEnabled,
+      flatOrbitSize, flatSpacing, flatWidthTaper,
+      mergeCycles,
+    };
+    const cfgJSON = JSON.stringify(cfg);
+    return `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Hero Orbit</title>
+<style>
+  html,body{margin:0;padding:0;}
+  #hero-orbit{position:relative;width:100%;aspect-ratio:1600/600;overflow:hidden;}
+  #hero-orbit canvas{display:block;width:100%;height:100%;}
+</style>
+</head>
+<body>
+<div id="hero-orbit"><canvas id="hero-orbit-canvas"></canvas></div>
+<script>
+(function(){
+  var CFG = ${cfgJSON};
+  var W = 1600, H = 600, FOCAL_FACTOR = 1.2, NEAR_Z = 0.09;
+  function ringFromWaist(R, theta, waistPx, flip){
+    var t = flip ? Math.PI - theta : theta;
+    var focal = H * FOCAL_FACTOR;
+    var farZ = R * Math.sin(t);
+    var eps = (flip ? 1 : -1) * waistPx * farZ / focal;
+    return { R: R, theta: t, Yc: -R * Math.cos(t) + eps };
+  }
+  var RINGS = [
+    ringFromWaist(1, 0.62, 80, false),
+    ringFromWaist(1, 0.30, 18, false),
+    ringFromWaist(1, 0.30, 18, true),
+    ringFromWaist(1, 0.62, 80, true)
+  ];
+  function ringPoint3D(ring, phi){
+    var s = Math.sin(phi);
+    return { x: ring.R*Math.cos(phi), y: ring.Yc + ring.R*s*Math.cos(ring.theta), z: ring.R*s*Math.sin(ring.theta) };
+  }
+  function project(pt, cw, ch){
+    if(pt.z <= NEAR_Z) return null;
+    var focal = ch * FOCAL_FACTOR;
+    return { x: cw/2 + focal*pt.x/pt.z, y: ch/2 + focal*pt.y/pt.z, z: pt.z };
+  }
+  function buildDots(count){
+    var dots = [];
+    for(var i=0;i<count;i++) dots.push({ ring: i % RINGS.length, phase: (Math.PI*2*i)/count });
+    return dots;
+  }
+  var DOTS = buildDots(CFG.dotCount);
+  function clamp01(v){ return Math.max(0, Math.min(1, v)); }
+  function lerp(a,b,t){ return a + (b-a)*t; }
+  function hexToRgb(hex){
+    hex = hex.replace('#','');
+    return [parseInt(hex.substr(0,2),16), parseInt(hex.substr(2,2),16), parseInt(hex.substr(4,2),16)];
+  }
+  function period(){ return 6 / CFG.speedMult; }
+  function flatRadii(){
+    return RINGS.map(function(_, i){ return Math.max(0.02, CFG.flatOrbitSize - i*CFG.flatSpacing); });
+  }
+
+  function renderPerspective(g, cw, ch, tSec){
+    g.lineCap = 'round';
+    var STEPS = 400;
+    RINGS.forEach(function(ring, ringIdx){
+      var rgb = hexToRgb(CFG.lineColors[ringIdx]);
+      var farZ = Math.max(NEAR_Z*1.5, ring.R*Math.sin(ring.theta));
+      var prevProj = null;
+      for(var i=0;i<=STEPS;i++){
+        var phi = (i/STEPS)*Math.PI*2;
+        var proj = project(ringPoint3D(ring, phi), cw, ch);
+        if(proj && prevProj){
+          var depth = clamp01((proj.z - NEAR_Z)/(farZ - NEAR_Z));
+          g.strokeStyle = 'rgba('+rgb[0]+','+rgb[1]+','+rgb[2]+','+lerp(0.95,0.22,depth)+')';
+          g.lineWidth = lerp(CFG.thickness*1.7, CFG.thickness*0.5, depth);
+          g.beginPath(); g.moveTo(prevProj.x, prevProj.y); g.lineTo(proj.x, proj.y); g.stroke();
+        }
+        prevProj = proj;
+      }
+    });
+    var t = tSec / period();
+    var FADE_Z = NEAR_Z*3.2, REF_Z = 0.32;
+    DOTS.forEach(function(dot){
+      var ring = RINGS[dot.ring];
+      var dc = CFG.dotColors[dot.ring];
+      var proj = project(ringPoint3D(ring, Math.PI*2*t + dot.phase), cw, ch);
+      if(!proj) return;
+      var fade = clamp01((proj.z - NEAR_Z)/(FADE_Z - NEAR_Z));
+      if(fade <= 0) return;
+      var scale = Math.max(0.35, Math.min(2.4, REF_Z/proj.z));
+      var r = CFG.dotRadius*scale;
+      if(CFG.glowEnabled){ g.shadowColor = dc; g.shadowBlur = r*3.2*fade; } else { g.shadowBlur = 0; }
+      g.globalAlpha = fade; g.fillStyle = dc;
+      g.beginPath(); g.arc(proj.x, proj.y, r, 0, Math.PI*2); g.fill();
+      g.shadowBlur = 0; g.globalAlpha = 1;
+    });
+  }
+
+  function renderFlat(g, cw, ch, tSec){
+    var cx = cw/2, cy = ch/2, baseRadius = Math.min(cw,ch)/2, radii = flatRadii();
+    g.lineCap = 'round';
+    RINGS.forEach(function(_, ringIdx){
+      var rgb = hexToRgb(CFG.lineColors[ringIdx]);
+      var radius = radii[ringIdx]*baseRadius;
+      var u = (RINGS.length-1-ringIdx)/(RINGS.length-1);
+      var widthMult = Math.max(0.15, 1 + CFG.flatWidthTaper*(u-0.5)*2);
+      g.strokeStyle = 'rgba('+rgb[0]+','+rgb[1]+','+rgb[2]+',0.9)';
+      g.lineWidth = CFG.thickness*widthMult;
+      g.beginPath(); g.arc(cx, cy, radius, 0, Math.PI*2); g.stroke();
+    });
+    var t = tSec/period();
+    DOTS.forEach(function(dot){
+      var dc = CFG.dotColors[dot.ring];
+      var radius = radii[dot.ring]*baseRadius;
+      var phi = Math.PI*2*t + dot.phase;
+      var x = cx + radius*Math.cos(phi), y = cy + radius*Math.sin(phi);
+      if(CFG.glowEnabled){ g.shadowColor = dc; g.shadowBlur = CFG.dotRadius*3.2; } else { g.shadowBlur = 0; }
+      g.fillStyle = dc;
+      g.beginPath(); g.arc(x, y, CFG.dotRadius, 0, Math.PI*2); g.fill();
+      g.shadowBlur = 0;
+    });
+  }
+
+  function renderMerge(g, cw, ch, tSec){
+    var cx = cw/2, cy = ch/2, baseRadius = Math.min(cw,ch)/2;
+    var spread = [0,1,2].map(function(i){ return Math.max(0.02, CFG.flatOrbitSize - i*CFG.flatSpacing); });
+    var mergedFrac = spread[1];
+    var cycleSeconds = CFG.mergeCycles * period();
+    var mergeFactor = (1 - Math.cos(2*Math.PI*tSec/cycleSeconds))/2;
+    var radiiFrac = spread.map(function(s){ return lerp(s, mergedFrac, mergeFactor); });
+    g.lineCap = 'round';
+    [0,1,2].forEach(function(ringIdx){
+      var rgb = hexToRgb(CFG.lineColors[ringIdx]);
+      var radius = radiiFrac[ringIdx]*baseRadius;
+      var u = (2-ringIdx)/2;
+      var widthMult = Math.max(0.15, 1 + CFG.flatWidthTaper*(u-0.5)*2);
+      g.strokeStyle = 'rgba('+rgb[0]+','+rgb[1]+','+rgb[2]+',0.9)';
+      g.lineWidth = CFG.thickness*widthMult;
+      g.beginPath(); g.arc(cx, cy, radius, 0, Math.PI*2); g.stroke();
+    });
+    var t = tSec/period();
+    [0,1,2].forEach(function(ringIdx){
+      var dc = CFG.dotColors[ringIdx];
+      var radius = radiiFrac[ringIdx]*baseRadius;
+      var phi = Math.PI*2*t + (Math.PI*2*ringIdx)/3;
+      var x = cx + radius*Math.cos(phi), y = cy + radius*Math.sin(phi);
+      if(CFG.glowEnabled){ g.shadowColor = dc; g.shadowBlur = CFG.dotRadius*3.2; } else { g.shadowBlur = 0; }
+      g.fillStyle = dc;
+      g.beginPath(); g.arc(x, y, CFG.dotRadius, 0, Math.PI*2); g.fill();
+      g.shadowBlur = 0;
+    });
+  }
+
+  function renderFrame(g, cw, ch, tSec){
+    g.clearRect(0, 0, cw, ch);
+    if(CFG.bgEnabled){ g.fillStyle = CFG.bgColor; g.fillRect(0, 0, cw, ch); }
+    if(CFG.view === 'flat') renderFlat(g, cw, ch, tSec);
+    else if(CFG.view === 'merge') renderMerge(g, cw, ch, tSec);
+    else renderPerspective(g, cw, ch, tSec);
+  }
+
+  var wrap = document.getElementById('hero-orbit');
+  var canvas = document.getElementById('hero-orbit-canvas');
+  var ctx = canvas.getContext('2d');
+  function resize(){
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    var cw = wrap.clientWidth || W;
+    var ch = cw * (H / W);
+    canvas.width = Math.round(cw * dpr);
+    canvas.height = Math.round(ch * dpr);
+  }
+  resize();
+  if('ResizeObserver' in window){ new ResizeObserver(resize).observe(wrap); }
+  else { window.addEventListener('resize', resize); }
+
+  var startTime = performance.now();
+  function tick(now){
+    renderFrame(ctx, canvas.width, canvas.height, (now - startTime) / 1000);
+    requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+})();
+<\/script>
+</body>
+</html>
+`;
+  }
+
+  document.getElementById('btn-export-html').addEventListener('click', () => {
+    const progress = document.getElementById('progress');
+    const html = buildEmbedHTML();
+    const blob = new Blob([html], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = 'hero_orbit_embed.html';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    progress.textContent = `Downloaded hero_orbit_embed.html (${viewMode} view).`;
+    setTimeout(() => { progress.textContent = ''; }, 3500);
+  });
 
   // ====================== VIDEO EXPORT ======================
   // Same technique as Flow Weave's own exporter: canvas.captureStream() +
