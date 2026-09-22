@@ -88,22 +88,14 @@
 
   .canvas-wrap{
     flex:1; position:relative; display:flex; align-items:center; justify-content:center;
-    background: #000000; overflow:hidden; cursor:grab; touch-action:none;
+    background: #000000;
   }
-  .canvas-wrap.dragging{ cursor:grabbing; }
   .card{
     background:var(--card-bg); border-radius:10px;
     box-shadow: 0 20px 70px -10px rgba(255,46,166,.12), 0 0 0 1px rgba(255,255,255,.08);
     padding: 10px; max-height: 88vh; max-width: 92vw;
-    transform-origin: center center;
   }
   svg#stage{ display:block; height: 80vh; width:auto; max-width: 88vw; }
-  .zoom-reset{
-    position:absolute; top:16px; right:16px; z-index:2;
-    background:var(--bg-panel-2, #1a1a1f); color:var(--text, #fff); border:1px solid var(--line, #333);
-    border-radius:6px; padding:6px 12px; font-size:11.5px; cursor:pointer; opacity:0.85;
-  }
-  .zoom-reset:hover{ opacity:1; }
 
   .top-badge{
     position:absolute; top:20px; left:20px; font-family:ui-monospace,monospace;
@@ -173,7 +165,6 @@
       <div class="btn-row">
         <button class="btn-primary" id="btn-shape-linear">Linear</button>
         <button class="btn-secondary" id="btn-shape-radial">Radial</button>
-        <button class="btn-secondary" id="btn-shape-single">Single node</button>
       </div>
 
       <label class="field">Nucleus offset X <span class="range-val" id="val-nucleus-offx">0</span></label>
@@ -240,31 +231,31 @@
       <label class="field" style="margin-top:16px;">Video length (cycles)</label>
       <input type="number" id="num-video-cycles" min="1" max="6" value="1">
 
-      <button class="btn-secondary" id="btn-export-video" style="margin-top:10px;">Export video (.mp4)</button>
-      <div class="hint" style="margin-top:4px; padding-top:0; border-top:none;">
-        Records the live animation straight to MP4 using Chrome/Edge's own
-        built-in recorder — needs Chrome or Edge. Produces a "fragmented"
-        MP4 that plays fine in browsers and on uploads (Instagram, websites,
-        etc.), but macOS's own QuickTime/Preview can't open it directly; VLC
-        handles it fine. Exports whatever's currently zoomed/panned into
-        view — zoom into a pathway first if you want just that.
+      <label class="field" style="margin-top:10px;">Format</label>
+      <div class="btn-row">
+        <button class="btn-primary" id="btn-video-format-webm">WebM</button>
+        <button class="btn-secondary" id="btn-video-format-mp4">MP4</button>
       </div>
+      <div class="hint" style="margin-top:4px; padding-top:0; border-top:none;">
+        MP4 uses Chrome's own built-in recorder, so it needs Chrome or Edge —
+        it produces a "fragmented" MP4 that plays fine in browsers and on
+        uploads (Instagram, websites, etc.), but macOS's own QuickTime/Preview
+        can't open it directly; VLC handles it fine. WebM works everywhere
+        except Apple's own apps.
+      </div>
+      <button class="btn-secondary" id="btn-export-video" style="margin-top:10px;">Export video (.webm)</button>
 
       <label class="checkbox-row" style="margin-top:10px;">
         <input type="checkbox" id="chk-experimental-video">
-        Experimental: true constant-bitrate export (WebCodecs)
+        Experimental: sharper export (WebCodecs)
       </label>
       <div class="hint" style="margin-top:4px; padding-top:0; border-top:none;">
-        The standard export's bitrate is only a hint — browsers can (and on
-        thin lines over black often do) quietly use less than requested,
-        even at a high target. This path encodes with WebCodecs at a truly
-        constant bitrate instead, at full native resolution — but it relies
-        on your browser's own video encoder directly, which can be slow or
-        hang on a dense diagram or a long clip. Try it; if it's not
-        finishing, the export button turns into <b>Cancel export</b> — click
-        it to stop safely, then uncheck this and use the standard export
-        instead. Always exports WebM regardless of the format the standard
-        path uses.
+        Full native resolution instead of a 1080px cap — but relies on your
+        browser's own video encoder, which can be slow or hang on a dense
+        diagram or a long clip. Try it; if it's not finishing, the export
+        button turns into <b>Cancel export</b> — click it to stop safely,
+        then uncheck this and use the standard export instead. Always
+        exports WebM regardless of the Format choice above.
       </div>
 
       <div class="progress-line" id="progress"></div>
@@ -278,10 +269,9 @@
     </div>
   </div>
 
-  <div class="canvas-wrap" id="canvas-wrap">
+  <div class="canvas-wrap">
     <div class="top-badge" id="badge">variation 0</div>
-    <button class="zoom-reset" id="btn-zoom-reset" title="Reset zoom/pan">Reset zoom</button>
-    <div class="card" id="zoom-card">
+    <div class="card">
       <svg id="stage" xmlns="http://www.w3.org/2000/svg"></svg>
     </div>
   </div>
@@ -309,7 +299,7 @@
   const RADIAL_BASE_SIZE = { w: 1400, h: 1400 };
   const COMPLEX_SIZE_SCALE = 1.6; // Complex needs more room regardless of style/shape
   function currentCanvasSize(){
-    const base = (shapeMode === 'radial' || shapeMode === 'single') ? RADIAL_BASE_SIZE : STYLE_BASE_SIZE[styleMode];
+    const base = shapeMode === 'radial' ? RADIAL_BASE_SIZE : STYLE_BASE_SIZE[styleMode];
     const scale = compositionMode === 'complex' ? COMPLEX_SIZE_SCALE : 1;
     return { w: Math.round(base.w * scale), h: Math.round(base.h * scale) };
   }
@@ -527,13 +517,9 @@
   // full regenerate (which would reshuffle everything, not just remove the
   // one bonus node). null when no extra target is currently applied.
   let extraTargetSnapshot = null;
+  let videoFormat = 'webm'; // 'webm' | 'mp4' — standard (non-experimental) video export only
   let currentPalette = 'aurora';
   let variationCount = 0;
-  // Mirrors the zoom/pan module's own zoom/panX/panY (see initZoomPan) so
-  // video export can tell whether the user has actually zoomed/panned at
-  // all, distinct from a diagram that merely happens to overflow the
-  // canvas-wrap at the current window size — see computeVisibleCropViewBox.
-  let currentZoomState = { zoom: 1, panX: 0, panY: 0 };
 
   // Radial-only geometry, recomputed in generateLayout() whenever the shape
   // is 'radial'. radialCenter is the true canvas center, where the outer
@@ -547,13 +533,6 @@
   let radialCenter = { x: 0, y: 0 };
   let radialOuterRadius = 0;
   let radialNucleusFocus = { x: 0, y: 0 };
-  // singleNodeGroups[ptIndex] — which of the 3 groups (0/1/2) each source
-  // in layers[0] belongs to, for Single-node shape only. Positions and
-  // connections don't carry group identity on their own (a source is just
-  // a point, an edge just two indices), so this is the one piece of extra
-  // state that lets render() color a source — and the line leaving it —
-  // by its group instead of by its (shared, uninformative) layer index.
-  let singleNodeGroups = [];
 
   const stage = document.getElementById('stage');
   const badge = document.getElementById('badge');
@@ -772,86 +751,16 @@
     return { connectedPts, unattachedPts };
   }
 
-  // Single-node shape: GROUP_COUNT clusters of nodes, each fanned across
-  // its own slice of the ring (with a gap between slices so each reads as
-  // a separate group, not one continuous ring), all converging on one
-  // shared node at the canvas center. Reuses the same radialCenter/
-  // radialOuterRadius/radialNucleusFocus state as Radial shape purely so
-  // the rest of render() (the shared-gradient defs in particular) doesn't
-  // need its own case — Single-node has no actual nucleus drift, so focus
-  // is just the center.
-  const SINGLE_GROUP_COUNT = 3;
-  function singleGroupPositions(count, radius, centerAngle, arcSpan, center, radiusJitterPx, angleJitterFrac){
-    if(count === 1) return [{ x: center.x + radius*Math.cos(centerAngle), y: center.y + radius*Math.sin(centerAngle) }];
-    const slotWidth = arcSpan / count;
-    const pts = [];
-    for(let i=0;i<count;i++){
-      const slotCenter = centerAngle - arcSpan/2 + slotWidth*(i+0.5);
-      const angle = slotCenter + (Math.random()-0.5)*slotWidth*angleJitterFrac;
-      const r = radius + (Math.random()-0.5)*2*radiusJitterPx;
-      pts.push({ x: center.x + r*Math.cos(angle), y: center.y + r*Math.sin(angle) });
-    }
-    return pts;
-  }
-
-  // Every source connects directly to the single shared node — the point
-  // of this shape is one node fed by several full groups of lines, not a
-  // sparse/degree-capped subset the way the layered shapes connect.
-  function buildFullyConnectedStage(fromPts, toPts){
-    function randomBow(){
-      return styleMode === 'organic' ? (Math.random()-0.5)*90 : 0;
-    }
-    return fromPts.map((fp, fi) => ({
-      x0: fp.x, y0: fp.y, x1: toPts[0].x, y1: toPts[0].y,
-      bow: randomBow(), srcIndex: fi, dstIndex: 0
-    }));
-  }
-
   function generateLayout(){
-    layers = [];
-    unattached = [];
-    singleNodeGroups = [];
-
-    if(shapeMode === 'single'){
-      radialCenter = { x: W/2, y: H/2 };
-      radialOuterRadius = Math.min(W, H)/2 - MARGIN;
-      radialNucleusFocus = radialCenter;
-      const spreadVal = parseFloat(document.getElementById('rng-layerspread').value) / 100;
-      const perGroup = Math.max(1, nodesPerLayer);
-      const jitterCfg = STYLE_JITTER[styleMode];
-      const radiusJitterPx = radialOuterRadius * jitterCfg.radiusJitterFrac;
-      // RULE: Layer spread controls how tight each group's fan is — low
-      // spread bunches a group's lines close together, high spread lets
-      // them splay wider — while always leaving a visible gap between the
-      // 3 groups so they read as distinct bundles, never one solid ring.
-      const arcFrac = 0.5 + spreadVal * 0.3;
-      const arcSpan = (Math.PI*2 / SINGLE_GROUP_COUNT) * arcFrac;
-      const sourcePts = [];
-      for(let g=0; g<SINGLE_GROUP_COUNT; g++){
-        const centerAngle = (g / SINGLE_GROUP_COUNT) * Math.PI*2 - Math.PI/2;
-        const pts = singleGroupPositions(perGroup, radialOuterRadius, centerAngle, arcSpan, radialCenter, radiusJitterPx, jitterCfg.angleJitterFrac);
-        pts.forEach(pt => { sourcePts.push(pt); singleNodeGroups.push(g); });
-      }
-      layers = [sourcePts, [{ ...radialCenter }]];
-      unattached = [[], []];
-      LAYER_COUNTS = [sourcePts.length, 1];
-      UNATTACHED_COUNTS = [0, 0];
-      NUM_STAGES = 1;
-      CYCLE = NUM_STAGES * STAGE_DUR + STAGE_PAUSE;
-      stageLines = [buildFullyConnectedStage(layers[0], layers[1])];
-      lines = stageLines.flat();
-      nodeArrivalTimes = computeNodeArrivalTimes();
-      singlePathway = computeSinglePathway();
-      updateCompositionHint();
-      return;
-    }
-
     const built = buildLayerCounts(targetsCount, numLayers, nodesPerLayer);
     LAYER_COUNTS = built.counts;
     UNATTACHED_COUNTS = built.unattached;
     computeLayerX();
     NUM_STAGES = LAYER_COUNTS.length - 1;
     CYCLE = NUM_STAGES * STAGE_DUR + STAGE_PAUSE;
+
+    layers = [];
+    unattached = [];
 
     if(shapeMode === 'radial'){
       radialCenter = { x: W/2, y: H/2 };
@@ -1087,10 +996,6 @@
   // the pre-mutation state first so removeExtraTarget can restore it
   // exactly when the checkbox is turned back off.
   function applyExtraTarget(){
-    // Not applicable to Single-node shape: its sources aren't "targets" in
-    // the degree-capped sense this connects into, and the whole point of
-    // the shape is every source connecting fully to the one shared node.
-    if(shapeMode === 'single') return;
     if(layers.length < 2) return;
     extraTargetSnapshot = {
       targetPts: layers[0].map(p => ({...p})),
@@ -1344,7 +1249,7 @@
   function pathD(l){
     const mx = (l.x0+l.x1)/2, my = (l.y0+l.y1)/2;
     const bow = l.bow || 0;
-    if(shapeMode === 'radial' || shapeMode === 'single'){
+    if(shapeMode === 'radial'){
       if(bow === 0) return `M${l.x0.toFixed(1)},${l.y0.toFixed(1)} L${l.x1.toFixed(1)},${l.y1.toFixed(1)}`;
       const dx = l.x1-l.x0, dy = l.y1-l.y0;
       const len = Math.hypot(dx,dy) || 1;
@@ -1358,11 +1263,6 @@
   function updateCompositionHint(){
     const el = document.getElementById('composition-hint');
     if(!el) return;
-    if(shapeMode === 'single'){
-      const perGroup = LAYER_COUNTS[0] / SINGLE_GROUP_COUNT;
-      el.innerHTML = `<b>${SINGLE_GROUP_COUNT}</b> groups of <b>${perGroup}</b> lines each converge on one shared node — <b>${LAYER_COUNTS[0]}</b> lines total. "Nodes per layer" sets each group's size; "Layer spread" sets how tight each group's fan is.`;
-      return;
-    }
     const chain = LAYER_COUNTS.join(' → ');
     const maxDegree = MAX_DEGREE[compositionMode];
     const totalUnattached = UNATTACHED_COUNTS.reduce((a,b) => a+b, 0);
@@ -1379,7 +1279,7 @@
   // than writing it into the visible #stage — used by the video exporter to
   // build each frame off-DOM without disturbing the live preview.
   function render(frameT){
-    const thickness = 0.4 + parseFloat(document.getElementById('rng-thickness').value)/100 * 7.6;
+    const thickness = 0.4 + parseFloat(document.getElementById('rng-thickness').value)/100 * 2.0;
     const includeBg = document.getElementById('chk-include-bg').checked;
     const opacityVar = parseFloat(document.getElementById('rng-opacityvar').value) / 100;
     const animateOn = document.getElementById('chk-animate').checked;
@@ -1468,7 +1368,7 @@
     // Setting fx/fy to radialNucleusFocus keeps the nucleus-colored end of
     // the gradient following the nucleus itself.
     let defs;
-    if(shapeMode === 'radial' || shapeMode === 'single'){
+    if(shapeMode === 'radial'){
       const reversedStops = stops.slice().reverse();
       const stopMarkupR = reversedStops.map((c,i) => {
         const env = OPACITY_ENVELOPE[i % OPACITY_ENVELOPE.length];
@@ -1493,33 +1393,13 @@
     // layer's position — e.g. an early layer lands near the purple stop, the
     // last layer lands exactly on the final (orange) stop.
     const layerColors = LAYER_COUNTS.map((_,i) => sampleGradient(stops, i/(LAYER_COUNTS.length-1)));
-    // RULE: Single-node shape colors by GROUP instead of by layer — every
-    // source shares layer 0, so the shared-gradient-by-layer scheme above
-    // would make them all one flat color, defeating the whole point of a
-    // "3 groups" visual. Sampled across the full gradient (0, 0.5, 1) so
-    // the 3 groups read as clearly distinct.
-    const groupColors = Array.from({length: SINGLE_GROUP_COUNT}, (_,g) => sampleGradient(stops, g/(SINGLE_GROUP_COUNT-1)));
-    function lineStrokeFor(l){
-      return shapeMode === 'single' ? groupColors[singleNodeGroups[l.srcIndex]] : 'url(#fw-shared)';
-    }
 
     let paths = '';
     stageLines.forEach((stage, li) => {
       const lineFaded = isLineFaded(li);
       stage.forEach((l) => {
-        if(singlePathwayOn && !pathwayEdgeSet.has(l)){
-          // RULE: an edge outside the isolated pathway still gets drawn,
-          // just hollow/dim — the same "nothing just vanishes" principle
-          // already used for unreached nodes below, extended to their
-          // connecting lines too. Without this, a hollow node's own edge
-          // simply disappeared, most noticeably with "Add an extra
-          // target": its one new edge was the only thing on the whole
-          // canvas that vanished outright when isolating a different
-          // target, making the added target look disconnected.
-          paths += `<path d="${pathD(l)}" fill="none" stroke="#ffffff" stroke-width="1" opacity="0.18"/>`;
-          return;
-        }
-        paths += fadeWrap(`<path d="${pathD(l)}" fill="none" stroke="${lineStrokeFor(l)}" stroke-width="${thickness.toFixed(2)}"/>`, lineFaded);
+        if(singlePathwayOn && !pathwayEdgeSet.has(l)) return;
+        paths += fadeWrap(`<path d="${pathD(l)}" fill="none" stroke="url(#fw-shared)" stroke-width="${thickness.toFixed(2)}"/>`, lineFaded);
       });
     });
 
@@ -1601,9 +1481,10 @@
     const DIAMOND_PRESS_WIDTH = 0.35;
 
     layers.forEach((layer, li) => {
-      const layerLitColor = layerColors[li];
+      const litColor = layerColors[li];
       const haloR = 9*sizeScale, dotR = 4*sizeScale;
       const diamondHaloR = haloR*DIAMOND_SCALE, diamondDotR = dotR*DIAMOND_SCALE;
+      const baseFill = permanentColors ? litColor : '#ffffff';
       layer.forEach((pt, ptIndex) => {
         // RULE: rather than touching every branch below (there are many
         // return points across the animate/frameT/permanentColors
@@ -1611,10 +1492,6 @@
         // retroactively fade-wrap whatever markup it appended — a `return`
         // inside a try block still runs `finally` first, so this reaches
         // every branch without editing any of them.
-        // Single-node shape colors sources by their group (see groupColors
-        // above), not by layer — every source shares layer 0.
-        const litColor = (shapeMode === 'single' && li === 0) ? groupColors[singleNodeGroups[ptIndex]] : layerLitColor;
-        const baseFill = permanentColors ? litColor : '#ffffff';
         const nodesMkStart = nodesMk.length;
         const hidden = isLayerHidden(li);
         const faded = isLayerFaded(li);
@@ -1925,6 +1802,16 @@
     render();
   });
 
+  function setVideoFormat(fmt){
+    videoFormat = fmt;
+    ['webm','mp4'].forEach(f => {
+      document.getElementById('btn-video-format-'+f).className = (f === fmt) ? 'btn-primary' : 'btn-secondary';
+    });
+    document.getElementById('btn-export-video').textContent = `Export video (.${fmt})`;
+  }
+  document.getElementById('btn-video-format-webm').addEventListener('click', () => setVideoFormat('webm'));
+  document.getElementById('btn-video-format-mp4').addEventListener('click', () => setVideoFormat('mp4'));
+
   document.getElementById('btn-export-one').addEventListener('click', () => {
     download(`flow_weave_${variationCount}.svg`, serializeCurrentSVG(), 'image/svg+xml');
   });
@@ -1977,10 +1864,8 @@
   // rasterized to a canvas.
   //
   // Two capture strategies:
-  //   1. Standard (default) — canvas.captureStream()+MediaRecorder, using
-  //      only native browser APIs: Chrome/Edge's own MediaRecorder mixes
-  //      straight to MP4 (video/mp4;codecs=avc1), no external library. It's
-  //      real-time-bound: MediaRecorder has no notion of "this frame
+  //   1. Standard (default) — canvas.captureStream()+MediaRecorder, which
+  //      is real-time-bound: MediaRecorder has no notion of "this frame
   //      belongs at t=X", it just records however long it's running. A
   //      dense diagram can take longer than 1/fps to render+rasterize a
   //      frame, so the loop below paces itself off a real-time budget
@@ -1989,42 +1874,33 @@
   //      Resolution/bitrate stay modest here because pushing them further
   //      risks a DIFFERENT failure mode: under real-time encoder
   //      backpressure, frames get dropped outright, silently TRUNCATING the
-  //      clip instead of just looking worse. Its `videoBitsPerSecond` is
-  //      also only ever a HINT per spec — the encoder can (and on thin
-  //      lines over a mostly-black background, often does) quietly spend
-  //      far less than requested, because that content "compresses
-  //      efficiently" by a rate-distortion metric that doesn't match how
-  //      visually blurry/blocky the result actually looks. There's no
-  //      `bitrateMode` knob on MediaRecorder to force it — that control
-  //      only exists on strategy 2 below.
+  //      clip instead of just looking worse.
   //   2. Experimental (opt-in) — WebCodecs (VideoEncoder + webm-muxer).
   //      Each frame is handed to the encoder with an explicit timestamp
   //      computed from its own frame index, not wall-clock time, so the
   //      muxed file's duration is correct by construction regardless of how
   //      long encoding actually takes — which is what allows exporting at
-  //      full native resolution instead of the 1080px cap, AND setting
-  //      `bitrateMode: 'constant'`, which forces the encoder to actually
-  //      spend the full requested bitrate instead of deciding it doesn't
-  //      need to. The tradeoff: this relies on the browser's own WebCodecs
-  //      video encoder directly, and testing found at least one real
-  //      environment where that encoder gets progressively — sometimes
-  //      drastically — slower as the frame count climbs, for reasons
-  //      outside this app's control. That's why it's opt-in with a warning
-  //      rather than the default, why it always outputs WebM (muxing to MP4
-  //      from raw encoded chunks without a library is a much bigger job
-  //      than reusing the small webm-muxer library), and why the export
-  //      button turns into a Cancel button while it runs.
+  //      full native resolution instead of the 1080px cap. The tradeoff:
+  //      this relies on the browser's own WebCodecs video encoder, and
+  //      testing found at least one real environment where that encoder
+  //      gets progressively — sometimes drastically — slower as the frame
+  //      count climbs, for reasons outside this app's control. That's why
+  //      it's opt-in with a warning rather than the default, and why the
+  //      export button turns into a Cancel button while it runs.
   const VIDEO_FPS = 30;
   const VIDEO_MAX_DIM = 1080; // standard path — see capture strategy 1 above
-  const VIDEO_BITRATE = 20_000_000; // standard path — a hint the encoder may still undercut, see above
-  const VIDEO_MIME_CANDIDATES = ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4'];
+  const VIDEO_BITRATE = 12_000_000; // standard path
   const VIDEO_MAX_DIM_EXPERIMENTAL = 1920; // experimental path — see capture strategy 2 above
-  // RULE: the target bitrate scales with resolution (bits per pixel per
-  // frame) rather than a flat number, so a smaller canvas doesn't get an
-  // absurdly excessive target and a larger one doesn't get starved. Since
-  // bitrateMode:'constant' actually forces the encoder to spend it, pushing
-  // this higher only risks slower encoding (mitigated by Cancel export),
-  // not truncation — unlike the standard path's ceiling above.
+  // RULE: the first cut of this used bitrateMode's default ('variable'),
+  // which let the encoder spend far FEWER bits than the target on this kind
+  // of content — thin anti-aliased lines on a mostly-black background
+  // compress very "efficiently" by a rate-distortion metric that doesn't
+  // match how blurry/blocky it actually looks, so real files came out a
+  // fraction of the requested bitrate. 'constant' forces the encoder to
+  // actually spend the full target instead of deciding it doesn't need to.
+  // The target itself can also be pushed well past the standard path's
+  // ceiling now — under WebCodecs a higher bitrate only risks slower
+  // encoding (mitigated by Cancel export), not truncation.
   const VIDEO_BITS_PER_PIXEL_PER_FRAME = 0.8;
   const VIDEO_MIN_BITRATE_EXPERIMENTAL = 15_000_000, VIDEO_MAX_BITRATE_EXPERIMENTAL = 80_000_000;
 
@@ -2037,48 +1913,9 @@
     });
   }
 
-  // RULE: video export follows the current on-screen zoom/pan instead of
-  // always exporting the full, unzoomed diagram — see
-  // computeVisibleCropViewBox below for how that crop is derived. `outW`/
-  // `outH` size the SVG's own width/height attributes (not just the final
-  // canvas draw size) so a zoomed-in crop still rasterizes at the target
-  // output resolution instead of the crop's native (much smaller, once
-  // zoomed) viewBox unit count — otherwise a tight zoom would come out
-  // blurry no matter how high the export resolution is set.
-  function buildFrameSvgMarkup(frameT, crop, outW, outH){
+  function buildFrameSvgMarkup(frameT){
     const svgInner = render(frameT);
-    const vb = crop ? `${crop.x.toFixed(2)} ${crop.y.toFixed(2)} ${crop.w.toFixed(2)} ${crop.h.toFixed(2)}` : `0 0 ${W} ${H}`;
-    const w = outW || W, h = outH || H;
-    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="${vb}" width="${w}" height="${h}">${svgInner}</svg>`;
-  }
-
-  // Maps the canvas-wrap's current visible screen rectangle back onto the
-  // diagram's own SVG viewBox coordinates, using the live, already-applied
-  // zoom/pan CSS transform on #zoom-card (see the ZOOM / PAN section) —
-  // getBoundingClientRect() reflects that transform automatically, however
-  // it was produced.
-  //
-  // RULE: only used once the user has actually zoomed or panned (see
-  // currentZoomState) — a full, untouched diagram that merely happens to
-  // be wider than the canvas-wrap at the current browser window size would
-  // otherwise get silently cropped to whatever sliver is on screen, when
-  // the whole point of the *default* export has always been "the entire
-  // diagram," independent of window size. Once the user has deliberately
-  // zoomed/panned, though, "export what I'm looking at" is exactly right.
-  function computeVisibleCropViewBox(){
-    if(currentZoomState.zoom === 1 && currentZoomState.panX === 0 && currentZoomState.panY === 0){
-      return { x: 0, y: 0, w: W, h: H };
-    }
-    const svgRect = document.getElementById('stage').getBoundingClientRect();
-    const wrapRect = document.getElementById('canvas-wrap').getBoundingClientRect();
-    if(svgRect.width <= 0 || svgRect.height <= 0) return { x: 0, y: 0, w: W, h: H };
-    const toX = (screenX) => (screenX - svgRect.left) / svgRect.width * W;
-    const toY = (screenY) => (screenY - svgRect.top) / svgRect.height * H;
-    const x0 = Math.max(0, Math.min(W, toX(wrapRect.left)));
-    const y0 = Math.max(0, Math.min(H, toY(wrapRect.top)));
-    const x1 = Math.max(0, Math.min(W, toX(wrapRect.right)));
-    const y1 = Math.max(0, Math.min(H, toY(wrapRect.bottom)));
-    return { x: x0, y: y0, w: Math.max(1, x1 - x0), h: Math.max(1, y1 - y0) };
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">${svgInner}</svg>`;
   }
 
   class VideoExportCancelled extends Error {}
@@ -2089,7 +1926,7 @@
   // duration is correct by construction rather than by keeping pace with a
   // deadline. isCancelled() is polled between frames so a stuck/slow
   // encoder can be bailed out of cleanly instead of hanging the page.
-  async function exportVideoWebCodecs({ outW, outH, totalSeconds, cycleMs, progress, canvas, ctx, isCancelled, crop }){
+  async function exportVideoWebCodecs({ outW, outH, totalSeconds, cycleMs, progress, canvas, ctx, isCancelled }){
     const bitrate = Math.round(Math.min(VIDEO_MAX_BITRATE_EXPERIMENTAL, Math.max(VIDEO_MIN_BITRATE_EXPERIMENTAL,
       outW * outH * VIDEO_FPS * VIDEO_BITS_PER_PIXEL_PER_FRAME)));
     // Try VP9 first (better compression at this bitrate), fall back to VP8
@@ -2126,7 +1963,7 @@
         if(encoderError) throw encoderError;
         const elapsedMs = i * (1000 / VIDEO_FPS);
         const frameT = (elapsedMs % cycleMs) / cycleMs;
-        const img = await svgFrameToImage(buildFrameSvgMarkup(frameT, crop, outW, outH));
+        const img = await svgFrameToImage(buildFrameSvgMarkup(frameT));
         ctx.clearRect(0, 0, outW, outH);
         ctx.drawImage(img, 0, 0, outW, outH);
 
@@ -2155,10 +1992,20 @@
   }
 
   // Capture strategy 1 (standard, default) — see the RULE block above.
-  async function exportVideoMediaRecorder({ outW, outH, totalSeconds, cycleMs, progress, canvas, ctx, isCancelled, crop }){
+  async function exportVideoMediaRecorder({ outW, outH, totalSeconds, cycleMs, progress, canvas, ctx, isCancelled }){
     const stream = canvas.captureStream(VIDEO_FPS);
     const [videoTrack] = stream.getVideoTracks();
-    const mimeType = VIDEO_MIME_CANDIDATES.find(m => MediaRecorder.isTypeSupported(m));
+    // RULE: MP4 here is Chrome/Edge's own built-in MediaRecorder muxer, not
+    // a separate library — the same "Chrome's built-in recorder" approach
+    // that's easy but produces a fragmented MP4 (fine in browsers and for
+    // uploads, but not openable by QuickTime/Preview — VLC is fine). The
+    // caller has already confirmed the browser supports at least one of
+    // these before getting here (see the pre-flight check at the click
+    // handler), so this always finds a match when format is 'mp4'.
+    const mimeCandidates = videoFormat === 'mp4'
+      ? ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4']
+      : ['video/webm;codecs=vp9', 'video/webm;codecs=vp8', 'video/webm'];
+    const mimeType = mimeCandidates.find(m => MediaRecorder.isTypeSupported(m)) || (videoFormat === 'mp4' ? 'video/mp4' : 'video/webm');
     const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: VIDEO_BITRATE });
     const chunks = [];
     recorder.ondataavailable = (e) => { if(e.data && e.data.size) chunks.push(e.data); };
@@ -2181,7 +2028,7 @@
         continue;
       }
       const frameT = (elapsed % cycleMs) / cycleMs;
-      const img = await svgFrameToImage(buildFrameSvgMarkup(frameT, crop, outW, outH));
+      const img = await svgFrameToImage(buildFrameSvgMarkup(frameT));
       ctx.clearRect(0, 0, outW, outH);
       ctx.drawImage(img, 0, 0, outW, outH);
       videoTrack.requestFrame();
@@ -2195,8 +2042,9 @@
     if(cancelled) throw new VideoExportCancelled();
 
     const blob = new Blob(chunks, { type: mimeType });
+    const ext = mimeType.includes('webm') ? 'webm' : 'mp4';
     const avgFps = (framesDrawn / totalSeconds).toFixed(1);
-    return { blob, ext: 'mp4', fpsNote: `~${avgFps}fps` };
+    return { blob, ext, fpsNote: `~${avgFps}fps` };
   }
 
   // RULE: the export button doubles as a Cancel button while an export is
@@ -2229,14 +2077,18 @@
       return;
     }
     if(!useExperimental && (typeof MediaRecorder === 'undefined' || !HTMLCanvasElement.prototype.captureStream)){
-      progress.textContent = 'Video export needs a browser with MediaRecorder + canvas.captureStream support (Chrome or Edge).';
-      setTimeout(()=>{ progress.textContent=''; }, 4500);
+      progress.textContent = 'Video export needs a browser with MediaRecorder + canvas.captureStream support.';
+      setTimeout(()=>{ progress.textContent=''; }, 4000);
       return;
     }
-    if(!useExperimental && !VIDEO_MIME_CANDIDATES.some(m => MediaRecorder.isTypeSupported(m))){
-      progress.textContent = 'MP4 recording needs Chrome or Edge — this browser doesn\'t support it.';
-      setTimeout(()=>{ progress.textContent=''; }, 4500);
-      return;
+    if(!useExperimental && videoFormat === 'mp4'){
+      const mp4Supported = ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4']
+        .some(m => MediaRecorder.isTypeSupported(m));
+      if(!mp4Supported){
+        progress.textContent = 'MP4 recording needs Chrome or Edge — switch Format to WebM for this browser.';
+        setTimeout(()=>{ progress.textContent=''; }, 4500);
+        return;
+      }
     }
 
     const originalLabel = btn.textContent;
@@ -2249,24 +2101,9 @@
       const cycles = Math.max(1, Math.min(6, parseInt(document.getElementById('num-video-cycles').value) || 1));
       const totalSeconds = CYCLE * cycles;
       const cycleMs = CYCLE * 1000;
-      // RULE: export follows whatever's currently zoomed/panned into view,
-      // not always the full diagram — see computeVisibleCropViewBox. Taken
-      // once up front, before anything else touches the DOM, so it reflects
-      // exactly what was on screen when Export was clicked.
-      const crop = computeVisibleCropViewBox();
-      const isZoomedOrPanned = !(currentZoomState.zoom === 1 && currentZoomState.panX === 0 && currentZoomState.panY === 0);
       const maxDim = useExperimental ? VIDEO_MAX_DIM_EXPERIMENTAL : VIDEO_MAX_DIM;
-      // RULE: the un-zoomed export never upscales past the diagram's own
-      // native size (min(1, ...) — matches the pre-existing behavior for
-      // the full diagram). But a zoomed-in crop's viewBox-unit dimensions
-      // can be tiny even though the user wants a full-resolution export of
-      // that view — so once actually zoomed, always scale UP to fill maxDim
-      // rather than capping at native size, or a tight zoom would export as
-      // a handful of pixels.
-      const scale = isZoomedOrPanned
-        ? maxDim / Math.max(crop.w, crop.h)
-        : Math.min(1, maxDim / Math.max(crop.w, crop.h));
-      const outW = Math.max(1, Math.round(crop.w*scale)), outH = Math.max(1, Math.round(crop.h*scale));
+      const scale = Math.min(1, maxDim / Math.max(W, H));
+      const outW = Math.max(1, Math.round(W*scale)), outH = Math.max(1, Math.round(H*scale));
 
       canvas = document.createElement('canvas');
       canvas.width = outW; canvas.height = outH;
@@ -2285,8 +2122,8 @@
 
       const isCancelled = () => videoExportCancelRequested;
       const result = useExperimental
-        ? await exportVideoWebCodecs({ outW, outH, totalSeconds, cycleMs, progress, canvas, ctx, isCancelled, crop })
-        : await exportVideoMediaRecorder({ outW, outH, totalSeconds, cycleMs, progress, canvas, ctx, isCancelled, crop });
+        ? await exportVideoWebCodecs({ outW, outH, totalSeconds, cycleMs, progress, canvas, ctx, isCancelled })
+        : await exportVideoMediaRecorder({ outW, outH, totalSeconds, cycleMs, progress, canvas, ctx, isCancelled });
 
       const url = URL.createObjectURL(result.blob);
       const a = document.createElement('a');
@@ -2319,7 +2156,6 @@
   document.getElementById('btn-style-organic').addEventListener('click', () => setStyleMode('organic'));
   document.getElementById('btn-shape-linear').addEventListener('click', () => setShapeMode('linear'));
   document.getElementById('btn-shape-radial').addEventListener('click', () => setShapeMode('radial'));
-  document.getElementById('btn-shape-single').addEventListener('click', () => setShapeMode('single'));
 
   // Pushes a composition preset's targets/layers/nodesPerLayer into state
   // and reflects them on the sliders + their value readouts.
@@ -2365,128 +2201,18 @@
     fullRegenerate();
   }
 
-  // Shape (Linear/Radial/Single node) is independent of Density and Style
-  // too — it only changes how positions/curves are computed, never resets
-  // any slider.
+  // Shape (Linear/Radial) is independent of Density and Style too — it only
+  // changes how positions/curves are computed, never resets any slider.
   function setShapeMode(mode){
     if(mode === shapeMode) return;
     shapeMode = mode;
-    ['linear','radial','single'].forEach(m => {
+    ['linear','radial'].forEach(m => {
       document.getElementById('btn-shape-'+m).className = (m === mode) ? 'btn-primary' : 'btn-secondary';
     });
     ({ w: W, h: H } = currentCanvasSize());
     computeLayerX();
     fullRegenerate();
   }
-
-  // ====================== ZOOM / PAN ======================
-  // RULE: purely a viewport transform on the .card wrapper — never touches
-  // W/H, the SVG's own viewBox, or anything generateLayout/render produce,
-  // so zooming into a node is just "look closer," not a different layout.
-  // Wheel/trackpad-pinch always zooms (both report as 'wheel' — a trackpad
-  // pinch additionally sets ctrlKey, but zooming either way is exactly
-  // what's wanted here); left-drag always pans. Re-applied after every
-  // render() since that only rewrites the SVG's own innerHTML, never the
-  // wrapping .card's style, so the current view survives regenerates.
-  (function initZoomPan(){
-    const wrap = document.getElementById('canvas-wrap');
-    const card = document.getElementById('zoom-card');
-    const resetBtn = document.getElementById('btn-zoom-reset');
-    const MIN_ZOOM = 0.3, MAX_ZOOM = 12;
-    let zoom = 1, panX = 0, panY = 0;
-
-    function applyTransform(){
-      card.style.transform = `translate(${panX}px, ${panY}px) scale(${zoom})`;
-      currentZoomState.zoom = zoom;
-      currentZoomState.panX = panX;
-      currentZoomState.panY = panY;
-    }
-
-    function zoomAt(clientX, clientY, factor){
-      const rect = wrap.getBoundingClientRect();
-      const mx = clientX - rect.left - rect.width/2;
-      const my = clientY - rect.top - rect.height/2;
-      const newZoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, zoom * factor));
-      const actual = newZoom / zoom;
-      panX = mx - (mx - panX) * actual;
-      panY = my - (my - panY) * actual;
-      zoom = newZoom;
-      applyTransform();
-    }
-
-    wrap.addEventListener('wheel', (e) => {
-      e.preventDefault();
-      zoomAt(e.clientX, e.clientY, Math.exp(-e.deltaY * 0.0018));
-    }, { passive: false });
-
-    // Left-mouse drag to pan. Listens on window for move/up so a drag that
-    // leaves the canvas area mid-gesture doesn't get stuck "on".
-    let dragging = false, dragStart = null, panStart = null;
-    wrap.addEventListener('mousedown', (e) => {
-      if(e.button !== 0) return;
-      dragging = true;
-      dragStart = { x: e.clientX, y: e.clientY };
-      panStart = { x: panX, y: panY };
-      wrap.classList.add('dragging');
-    });
-    window.addEventListener('mousemove', (e) => {
-      if(!dragging) return;
-      panX = panStart.x + (e.clientX - dragStart.x);
-      panY = panStart.y + (e.clientY - dragStart.y);
-      applyTransform();
-    });
-    window.addEventListener('mouseup', () => {
-      dragging = false;
-      wrap.classList.remove('dragging');
-    });
-
-    // Touch: one finger pans, two fingers pinch-zoom (+ pan on the midpoint).
-    let touchMode = null, touchStart = null;
-    function touchMidpoint(touches){
-      return { x: (touches[0].clientX+touches[1].clientX)/2, y: (touches[0].clientY+touches[1].clientY)/2 };
-    }
-    function touchDist(touches){
-      return Math.hypot(touches[0].clientX-touches[1].clientX, touches[0].clientY-touches[1].clientY);
-    }
-    wrap.addEventListener('touchstart', (e) => {
-      if(e.touches.length === 1){
-        touchMode = 'pan';
-        touchStart = { x: e.touches[0].clientX, y: e.touches[0].clientY, panX, panY };
-      } else if(e.touches.length === 2){
-        touchMode = 'pinch';
-        touchStart = { dist: touchDist(e.touches), mid: touchMidpoint(e.touches), zoom, panX, panY };
-      }
-    }, { passive: true });
-    wrap.addEventListener('touchmove', (e) => {
-      if(touchMode === 'pan' && e.touches.length === 1){
-        e.preventDefault();
-        panX = touchStart.panX + (e.touches[0].clientX - touchStart.x);
-        panY = touchStart.panY + (e.touches[0].clientY - touchStart.y);
-        applyTransform();
-      } else if(touchMode === 'pinch' && e.touches.length === 2){
-        e.preventDefault();
-        const dist = touchDist(e.touches);
-        const factor = dist / touchStart.dist;
-        zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, touchStart.zoom * factor));
-        const mid = touchMidpoint(e.touches);
-        const rect = wrap.getBoundingClientRect();
-        const mx = mid.x - rect.left - rect.width/2, my = mid.y - rect.top - rect.height/2;
-        panX = touchStart.panX + (mid.x - touchStart.mid.x);
-        panY = touchStart.panY + (mid.y - touchStart.mid.y);
-        applyTransform();
-      }
-    }, { passive: false });
-    wrap.addEventListener('touchend', () => { touchMode = null; });
-
-    resetBtn.addEventListener('click', () => {
-      zoom = 1; panX = 0; panY = 0;
-      applyTransform();
-    });
-    wrap.addEventListener('dblclick', () => {
-      zoom = 1; panX = 0; panY = 0;
-      applyTransform();
-    });
-  })();
 
   // ====================== INIT ======================
   computeLayerX();
