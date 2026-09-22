@@ -1,0 +1,1007 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="An animated progress bar of rectangles with adjustable stage count, speed, reveal style, colour, background, typeface and video export.">
+<style>html{color-scheme:light dark}body{margin:0}img{max-width:100%}[hidden]{display:none!important}</style>
+<title>Phase Shift Bargraph</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600&family=Bebas+Neue&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&family=Oswald:wght@500;600&family=Playfair+Display:wght@600;700&display=swap">
+</head>
+<body>
+<style>
+  :root{
+    --ground:#e9ebee;
+    --ink:#161b22;
+    --ink-2:#4d5663;
+    --ink-3:#858e9b;
+    --rail:#d2d7de;
+    --hair:#d2d7de;
+    --field:#f4f6f8;
+    --bar:#f5a524;
+    --font-display:"Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
+    --font-body:"IBM Plex Sans", system-ui, -apple-system, sans-serif;
+    --font-mono:"IBM Plex Mono", ui-monospace, Menlo, monospace;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ground:#11141a;
+      --ink:#e9edf2;
+      --ink-2:#9aa5b4;
+      --ink-3:#707b8a;
+      --rail:#272e38;
+      --hair:#272e38;
+      --field:#1a1f27;
+    }
+  }
+  :root[data-theme="dark"]{
+    --ground:#11141a;
+    --ink:#e9edf2;
+    --ink-2:#9aa5b4;
+    --ink-3:#707b8a;
+    --rail:#272e38;
+    --hair:#272e38;
+    --field:#1a1f27;
+  }
+
+  *{box-sizing:border-box}
+  body{
+    background:var(--ground);
+    color:var(--ink);
+    font-family:var(--font-body);
+    font-size:15px;
+    line-height:1.5;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{
+    max-width:1000px;
+    margin:0 auto;
+    padding-inline:20px;
+    padding-block:clamp(24px,5vw,52px);
+    display:flex;
+    flex-direction:column;
+    gap:clamp(22px,4vw,38px);
+  }
+
+  header h1{
+    font-family:var(--font-display);
+    font-weight:600;
+    font-size:clamp(26px,4.4vw,38px);
+    letter-spacing:.07em;
+    text-transform:uppercase;
+    margin:0;
+    line-height:1;
+  }
+  header p{
+    margin:7px 0 0;
+    font-family:var(--font-mono);
+    font-size:11px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--ink-3);
+  }
+
+  .stage{display:block;width:100%}
+  canvas{display:block;margin:0 auto;max-width:100%}
+
+  .console{
+    border-top:1px solid var(--hair);
+    padding-top:clamp(20px,3vw,28px);
+    display:grid;
+    grid-template-columns:repeat(auto-fit,minmax(210px,1fr));
+    gap:22px 28px;
+  }
+  .field{display:flex;flex-direction:column;gap:9px;min-width:0}
+  .cap{
+    font-family:var(--font-mono);
+    font-size:10px;
+    letter-spacing:.13em;
+    text-transform:uppercase;
+    color:var(--ink-3);
+    display:flex;
+    justify-content:space-between;
+    gap:10px;
+  }
+  .cap .val{color:var(--ink-2);font-variant-numeric:tabular-nums}
+  input[type="range"]{width:100%;accent-color:var(--bar);height:18px;margin:0}
+  .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+  button{
+    font-family:var(--font-mono);
+    font-weight:500;
+    font-size:11px;
+    letter-spacing:.11em;
+    text-transform:uppercase;
+    color:var(--ink);
+    background:var(--field);
+    border:1px solid var(--hair);
+    border-radius:0;
+    padding:9px 14px;
+    cursor:pointer;
+    transition:border-color .15s ease,color .15s ease;
+  }
+  button:hover:not(:disabled){border-color:var(--ink-3)}
+  button:disabled{opacity:.45;cursor:default}
+  button.primary{background:var(--bar);border-color:var(--bar);color:#14161a}
+  .swatches{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+  .swatches.bg{grid-template-columns:repeat(6,1fr)}
+  .sw{width:100%;height:26px;padding:0;border:1px solid var(--hair);cursor:pointer}
+  .sw[aria-pressed="true"]{outline:2px solid var(--ink);outline-offset:2px}
+  .sw.auto{background:linear-gradient(135deg, #fff 0 50%, #14171c 50% 100%)}
+  input[type="color"]{
+    width:100%;height:26px;padding:0;
+    background:var(--field);border:1px solid var(--hair);
+    cursor:pointer;
+  }
+  select{
+    font-family:var(--font-body);
+    font-size:14px;
+    color:var(--ink);
+    background:var(--field);
+    border:1px solid var(--hair);
+    border-radius:0;
+    padding:8px 9px;
+    width:100%;
+    cursor:pointer;
+  }
+  .toggle{
+    display:flex;align-items:center;gap:8px;
+    font-family:var(--font-mono);font-size:10px;
+    letter-spacing:.13em;text-transform:uppercase;color:var(--ink-3);
+  }
+  .toggle input{accent-color:var(--bar);width:15px;height:15px}
+  .stages{grid-column:1/-1;border:0;margin:0;padding:0;display:flex;flex-direction:column;gap:9px}
+  .stage-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));gap:8px}
+  .stage-grid label{
+    display:flex;align-items:center;gap:8px;
+    background:var(--field);
+    border:1px solid var(--hair);
+    padding-left:9px;
+  }
+  .stage-grid .n{
+    font-family:var(--font-mono);
+    font-size:10px;letter-spacing:.08em;color:var(--ink-3);
+    font-variant-numeric:tabular-nums;
+  }
+  .stage-grid input{
+    flex:1;min-width:0;
+    font-family:var(--font-body);
+    font-size:14px;
+    letter-spacing:.02em;
+    color:var(--ink);
+    background:transparent;border:0;padding:9px 9px 9px 0;
+  }
+  .stage-grid input:focus{outline:none}
+  .stage-grid label:focus-within{border-color:var(--bar)}
+  .status{
+    font-family:var(--font-mono);
+    font-size:10.5px;
+    letter-spacing:.06em;
+    color:var(--ink-3);
+    min-height:1.3em;
+  }
+  :focus-visible{outline:2px solid var(--bar);outline-offset:2px}
+  @media (max-width:560px){
+    .console{gap:20px}
+  }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Phase Shift</h1>
+    <p id="subtitle">Six-stage programme bargraph</p>
+  </header>
+
+  <div class="stage">
+    <canvas id="bar" role="img" aria-label="Programme bargraph, stage 1 of 6"></canvas>
+  </div>
+
+  <section class="console" aria-label="Controls">
+    <div class="field">
+      <div class="cap" id="capTransport">Transport <span class="val" id="stateVal">Running</span></div>
+      <div class="row" role="group" aria-labelledby="capTransport">
+        <button type="button" id="btnPlay" class="primary">Pause</button>
+        <button type="button" id="btnReset">Restart</button>
+      </div>
+      <div class="toggle">
+        <input type="checkbox" id="loopChk" checked>
+        <label for="loopChk">Loop</label>
+      </div>
+      <div class="toggle">
+        <input type="checkbox" id="hideTextChk">
+        <label for="hideTextChk">Hide text</label>
+      </div>
+      <div class="toggle">
+        <input type="checkbox" id="stepChk">
+        <label for="stepChk">Reveal by stage</label>
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="cap" for="speed">Cycle time <span class="val"><span id="speedVal">18</span>s</span></label>
+      <input type="range" id="speed" min="3" max="60" step="1" value="18">
+    </div>
+
+    <div class="field">
+      <label class="cap" for="stages">Stages <span class="val" id="stagesVal">6</span></label>
+      <input type="range" id="stages" min="2" max="6" step="1" value="6">
+    </div>
+
+    <div class="field">
+      <label class="cap" for="count">Rectangles <span class="val" id="countVal">48</span></label>
+      <input type="range" id="count" min="6" max="120" step="6" value="48">
+    </div>
+
+    <div class="field">
+      <label class="cap" for="width">Bar width <span class="val"><span id="widthVal">960</span>px</span></label>
+      <input type="range" id="width" min="280" max="2000" step="20" value="960">
+    </div>
+
+    <div class="field">
+      <label class="cap" for="height">Rectangle height <span class="val"><span id="heightVal">58</span>px</span></label>
+      <input type="range" id="height" min="12" max="180" step="2" value="58">
+    </div>
+
+    <div class="field">
+      <label class="cap" for="gap">Spacing <span class="val"><span id="gapVal">3</span>px</span></label>
+      <input type="range" id="gap" min="0" max="24" step="1" value="3">
+    </div>
+
+    <div class="field">
+      <label class="cap" for="colorPicker">Colour <span class="val" id="colorVal">#F5A524</span></label>
+      <div class="swatches" id="swatches">
+        <input type="color" id="colorPicker" value="#f5a524" aria-label="Custom bar colour">
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="cap" for="bgPicker">Background <span class="val" id="bgVal">Auto</span></label>
+      <div class="swatches bg" id="bgSwatches">
+        <input type="color" id="bgPicker" value="#ffffff" aria-label="Custom background colour">
+      </div>
+    </div>
+
+    <div class="field">
+      <label class="cap" for="font">Typeface</label>
+      <select id="font">
+        <option value="Barlow Condensed">Barlow Condensed</option>
+        <option value="Bebas Neue">Bebas Neue</option>
+        <option value="Oswald">Oswald</option>
+        <option value="IBM Plex Sans">IBM Plex Sans</option>
+        <option value="IBM Plex Mono">IBM Plex Mono</option>
+        <option value="Playfair Display">Playfair Display</option>
+      </select>
+    </div>
+
+    <div class="field">
+      <label class="cap" for="exportScale">Export resolution</label>
+      <select id="exportScale">
+        <option value="1">1&times; &mdash; standard</option>
+        <option value="2" selected>2&times; &mdash; retina</option>
+        <option value="3">3&times; &mdash; high&#8209;res</option>
+        <option value="4">4&times; &mdash; ultra high&#8209;res</option>
+      </select>
+      <div class="row">
+        <button type="button" id="btnExport">Record video</button>
+      </div>
+      <p class="status" id="exportStatus">One full sweep, recorded live.</p>
+    </div>
+
+    <fieldset class="stages">
+      <div class="cap">Stage names</div>
+      <div class="stage-grid" id="stageGrid"></div>
+    </fieldset>
+  </section>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  var MAX_STAGES = 6;   /* fixed number of name slots; state.stages picks how many are active */
+  var DEFAULT_NAMES = ["Requirement","Design","Produce","Test","Qualify","Supply"];
+  var PRESETS = ["#f5a524","#e5484d","#2fa98c","#3b82c4","#b84da8","#7fb539"];
+  var BG_PRESETS = ["#ffffff","#14171c","#1c2530","#f3efe4"];
+  var STORE = "phase-shift.v2";
+  var WEIGHT = {
+    "Barlow Condensed": 600,
+    "Bebas Neue": 400,
+    "Oswald": 600,
+    "IBM Plex Sans": 600,
+    "IBM Plex Mono": 500,
+    "Playfair Display": 700
+  };
+
+  var state = {
+    names: DEFAULT_NAMES.slice(),
+    count: 48,
+    cycle: 18,
+    width: 960,
+    height: 58,
+    gap: 3,
+    color: "#f5a524",
+    bgColor: "#ffffff",
+    bgCustom: false,
+    hideText: false,
+    stages: 6,
+    stepReveal: false,
+    exportScale: 2,
+    font: "Barlow Condensed",
+    loop: true,
+    playing: true
+  };
+
+  try{
+    var saved = JSON.parse(localStorage.getItem(STORE) || "null");
+    if(saved && typeof saved === "object"){
+      if(Array.isArray(saved.names) && saved.names.length === MAX_STAGES) state.names = saved.names.map(String);
+      if(saved.count >= 6 && saved.count <= 120) state.count = saved.count;
+      if(saved.cycle >= 3 && saved.cycle <= 60) state.cycle = saved.cycle;
+      if(saved.width >= 280 && saved.width <= 1400) state.width = saved.width;
+      if(saved.height >= 12 && saved.height <= 180) state.height = saved.height;
+      if(saved.gap >= 0 && saved.gap <= 24) state.gap = saved.gap;
+      if(typeof saved.color === "string" && /^#[0-9a-f]{6}$/i.test(saved.color)) state.color = saved.color;
+      if(typeof saved.bgColor === "string" && /^#[0-9a-f]{6}$/i.test(saved.bgColor)) state.bgColor = saved.bgColor;
+      if(typeof saved.bgCustom === "boolean") state.bgCustom = saved.bgCustom;
+      if(typeof saved.hideText === "boolean") state.hideText = saved.hideText;
+      if(saved.stages >= 2 && saved.stages <= MAX_STAGES) state.stages = saved.stages;
+      if(typeof saved.stepReveal === "boolean") state.stepReveal = saved.stepReveal;
+      if([1,2,3,4].indexOf(saved.exportScale) > -1) state.exportScale = saved.exportScale;
+      if(WEIGHT[saved.font]) state.font = saved.font;
+      if(typeof saved.loop === "boolean") state.loop = saved.loop;
+    }
+  }catch(e){ /* storage unavailable: defaults stand */ }
+
+  function save(){
+    try{ localStorage.setItem(STORE, JSON.stringify(state)); }catch(e){}
+  }
+
+  var reduced = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  var canvas = document.getElementById("bar");
+  var ctx = canvas.getContext("2d");
+  var stageBox = canvas.parentNode;
+  var swatches = document.getElementById("swatches");
+  var colorPicker = document.getElementById("colorPicker");
+  var speed = document.getElementById("speed");
+  var count = document.getElementById("count");
+  var widthIn = document.getElementById("width");
+  var heightIn = document.getElementById("height");
+  var gapIn = document.getElementById("gap");
+  var fontSel = document.getElementById("font");
+  var loopChk = document.getElementById("loopChk");
+  var btnPlay = document.getElementById("btnPlay");
+  var btnReset = document.getElementById("btnReset");
+  var btnExport = document.getElementById("btnExport");
+  var exportStatus = document.getElementById("exportStatus");
+  var stateVal = document.getElementById("stateVal");
+  var speedVal = document.getElementById("speedVal");
+  var countVal = document.getElementById("countVal");
+  var widthVal = document.getElementById("widthVal");
+  var heightVal = document.getElementById("heightVal");
+  var gapVal = document.getElementById("gapVal");
+  var colorVal = document.getElementById("colorVal");
+  var bgSwatches = document.getElementById("bgSwatches");
+  var bgPicker = document.getElementById("bgPicker");
+  var bgVal = document.getElementById("bgVal");
+  var hideTextChk = document.getElementById("hideTextChk");
+  var stepChk = document.getElementById("stepChk");
+  var stagesIn = document.getElementById("stages");
+  var stagesVal = document.getElementById("stagesVal");
+  var exportScaleSel = document.getElementById("exportScale");
+  var stageGrid = document.getElementById("stageGrid");
+  var subtitle = document.getElementById("subtitle");
+  var STAGE_WORDS = ["", "One", "Two", "Three", "Four", "Five", "Six"];
+
+  /* ---------- geometry ---------- */
+
+  var geo = { vertical:false, numBase:19, nameBottom:46, nameArea:0, barTop:62, height:120 };
+
+  var cssW = 960;
+  var progress = 0;
+  var activeIdx = -1;
+  var hitAt = new Array(MAX_STAGES).fill(-1e9);   /* sized to the max; only the active stages' slots are ever touched */
+  var holdUntil = 0;
+  var theme = {};
+  var recorder = null;   /* declared here so layout() can see it before video export loads below */
+
+  function readTheme(){
+    var cs = getComputedStyle(document.documentElement);
+    theme = {
+      bar: cs.getPropertyValue("--bar").trim(),
+      ink: cs.getPropertyValue("--ink").trim(),
+      muted: cs.getPropertyValue("--ink-3").trim(),
+      rail: cs.getPropertyValue("--rail").trim(),
+      ground: cs.getPropertyValue("--ground").trim()
+    };
+  }
+
+  function layout(){
+    if(recorder) return;   /* a recording owns the canvas's pixel size until it stops */
+    var avail = stageBox.clientWidth || state.width;
+    cssW = Math.max(240, Math.min(state.width, avail));
+
+    if(state.hideText){
+      geo = { vertical:false, numBase:0, nameArea:0, nameBottom:0, barTop:0 };
+    }else if(cssW / state.stages < 84){
+      /* too little room per stage for a horizontal name: stand the names up */
+      geo = { vertical:true, numBase:14, nameArea:96, nameBottom:120, barTop:132 };
+    }else{
+      geo = { vertical:false, numBase:19, nameArea:0, nameBottom:46, barTop:62 };
+    }
+    geo.height = geo.barTop + state.height;
+
+    var scale = Math.max(2, window.devicePixelRatio || 1);
+    canvas.style.width = cssW + "px";
+    canvas.style.height = geo.height + "px";
+    canvas.width = Math.round(cssW * scale);
+    canvas.height = Math.round(geo.height * scale);
+    ctx.setTransform(scale, 0, 0, scale, 0, 0);
+  }
+
+  /* ---------- drawing ---------- */
+
+  function fontStr(size){
+    return WEIGHT[state.font] + " " + size + 'px "' + state.font + '", sans-serif';
+  }
+
+  function fitSize(text, base, maxW){
+    var size = base;
+    ctx.font = fontStr(size);
+    while(size > 7 && ctx.measureText(text).width > maxW){
+      size -= 0.5;
+      ctx.font = fontStr(size);
+    }
+    return size;
+  }
+
+  function resolvedBg(){
+    return state.bgCustom ? state.bgColor : theme.ground;
+  }
+
+  /* relative luminance, so custom backgrounds keep readable text
+     regardless of which page theme picked them */
+  function luminance(hex){
+    var m = hex.replace("#", "");
+    var r = parseInt(m.substr(0,2),16) / 255;
+    var g = parseInt(m.substr(2,2),16) / 255;
+    var b = parseInt(m.substr(4,2),16) / 255;
+    return 0.2126*r + 0.7152*g + 0.0722*b;
+  }
+
+  function canvasPalette(){
+    if(!state.bgCustom){
+      return { ink: theme.ink, muted: theme.muted, rail: theme.rail };
+    }
+    var dark = luminance(state.bgColor) < 0.5;
+    return dark
+      ? { ink: "#eef1f5", muted: "#8b95a3", rail: "rgba(255,255,255,.18)" }
+      : { ink: "#14171c", muted: "#767f8c", rail: "rgba(20,23,28,.14)" };
+  }
+
+  function draw(now){
+    var pal = canvasPalette();
+    var stagesN = state.stages;
+    var band = cssW / stagesN;
+    var spacing = ctx.letterSpacing !== undefined;
+
+    ctx.fillStyle = resolvedBg();
+    ctx.fillRect(0, 0, cssW, geo.height);
+
+    if(state.hideText) return drawBar(now);
+
+    for(var i = 0; i < stagesN; i++){
+      var cx = band * i + band / 2;
+      var name = (state.names[i] || "").toUpperCase();
+      var num = ("0" + (i + 1)).slice(-2);
+
+      var bump = 0;
+      if(!reduced){
+        var t = (now - hitAt[i]) / 620;
+        if(t >= 0 && t <= 1) bump = Math.sin(t * Math.PI) * (1 - t * 0.35);
+      }
+
+      var passed = progress >= (i + 1) / stagesN;
+      var isActive = i === activeIdx;
+      var tint = isActive ? theme.bar : (passed ? pal.ink : pal.muted);
+      var grow = 1 + 0.14 * bump;
+
+      /* stage number */
+      ctx.save();
+      ctx.translate(cx, bump ? -4 * bump : 0);
+      ctx.textAlign = "center";
+      ctx.textBaseline = "alphabetic";
+      if(spacing) ctx.letterSpacing = "0.16em";
+      ctx.font = WEIGHT[state.font] + ' 11px "' + state.font + '", sans-serif';
+      ctx.fillStyle = isActive ? theme.bar : pal.muted;
+      ctx.fillText(num, 0, geo.numBase);
+      ctx.restore();
+
+      /* stage name */
+      ctx.save();
+      if(spacing) ctx.letterSpacing = "0.04em";
+      ctx.fillStyle = tint;
+      if(geo.vertical){
+        ctx.translate(cx, geo.nameBottom - (bump ? 5 * bump : 0));
+        ctx.rotate(-Math.PI / 2);
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.font = fontStr(fitSize(name, 15, geo.nameArea - 6));
+        if(bump) ctx.scale(grow, grow);
+        ctx.fillText(name, 0, 0);
+      }else{
+        ctx.translate(cx, geo.nameBottom - (bump ? 5 * bump : 0));
+        ctx.textAlign = "center";
+        ctx.textBaseline = "alphabetic";
+        ctx.font = fontStr(fitSize(name, Math.min(21, band * 0.26 + 8), band - 14));
+        if(bump) ctx.scale(grow, grow);
+        ctx.fillText(name, 0, 0);
+      }
+      ctx.restore();
+    }
+
+    drawBar(now);
+  }
+
+  /* stage-quantized reveal: each stage's whole block of rectangles pops in
+     together the instant that stage becomes active, instead of the bar
+     filling one rectangle at a time as progress creeps forward */
+  function drawBar(now){
+    var pal = canvasPalette();
+    var n = state.count;
+    var stagesN = state.stages;
+    var gap = Math.min(state.gap, (cssW / n) * 0.7);   /* always leave a rectangle to see */
+    var slot = (cssW + gap) / n;
+    var w = slot - gap;
+    var rectW = Math.max(1, Math.round(w));
+
+    var frac = state.stepReveal
+      ? (Math.min(stagesN - 1, Math.floor(progress * stagesN)) + 1) / stagesN
+      : progress;
+    var lit = Math.floor(frac * n + 1e-9);
+
+    for(var k = 0; k < n; k++){
+      var on = k < lit;
+      var h = state.height;
+      var y = geo.barTop;
+
+      if(on && state.stepReveal && !reduced){
+        var stageOfRect = Math.min(stagesN - 1, Math.floor((k + 0.5) / n * stagesN));
+        var t = (now - hitAt[stageOfRect]) / 380;
+        var e = t >= 1 ? 1 : (t <= 0 ? 0 : 1 - Math.pow(1 - t, 3));
+        h = state.height * e;
+        y = geo.barTop + (state.height - h);
+      }
+
+      ctx.fillStyle = on ? theme.bar : pal.rail;
+      ctx.fillRect(Math.round(k * slot), y, rectW, Math.max(0, h));
+    }
+  }
+
+  function tickState(now){
+    var idx = Math.min(state.stages - 1, Math.floor(progress * state.stages));
+    if(idx !== activeIdx){
+      activeIdx = idx;
+      hitAt[idx] = now;
+      canvas.setAttribute("aria-label",
+        "Programme bargraph, stage " + (idx + 1) + " of " + state.stages + ": " + (state.names[idx] || ""));
+    }
+  }
+
+  function resetRun(){
+    progress = 0;
+    activeIdx = -1;
+    hitAt = new Array(MAX_STAGES).fill(-1e9);
+    holdUntil = 0;
+  }
+
+  /* ---------- controls ---------- */
+
+  function setColor(hex){
+    state.color = hex;
+    document.documentElement.style.setProperty("--bar", hex);
+    colorPicker.value = hex;
+    colorVal.textContent = hex.toUpperCase();
+    Array.prototype.forEach.call(swatches.querySelectorAll(".sw"), function(b){
+      b.setAttribute("aria-pressed", String(b.dataset.hex === hex.toLowerCase()));
+    });
+    readTheme();
+    save();
+  }
+
+  function setBg(hex){
+    if(hex === null){
+      state.bgCustom = false;
+      bgVal.textContent = "Auto";
+    }else{
+      state.bgCustom = true;
+      state.bgColor = hex;
+      bgPicker.value = hex;
+      bgVal.textContent = hex.toUpperCase();
+    }
+    Array.prototype.forEach.call(bgSwatches.querySelectorAll(".sw"), function(b){
+      var isAuto = b.classList.contains("auto");
+      b.setAttribute("aria-pressed", String(
+        isAuto ? !state.bgCustom : (state.bgCustom && b.dataset.hex === state.bgColor.toLowerCase())
+      ));
+    });
+    save();
+  }
+
+  function setFont(family){
+    state.font = family;
+    document.documentElement.style.setProperty("--font-display",
+      '"' + family + '", system-ui, sans-serif');
+    if(document.fonts && document.fonts.load){
+      document.fonts.load(fontStr(21));
+      document.fonts.load(WEIGHT[family] + ' 11px "' + family + '"');
+    }
+    save();
+  }
+
+  function setPlaying(on){
+    state.playing = on;
+    btnPlay.textContent = on ? "Pause" : "Play";
+    stateVal.textContent = on ? "Running" : "Held";
+  }
+
+  PRESETS.forEach(function(hex){
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "sw";
+    b.style.background = hex;
+    b.dataset.hex = hex;
+    b.setAttribute("aria-label", "Bar colour " + hex);
+    b.addEventListener("click", function(){ setColor(hex); });
+    swatches.insertBefore(b, colorPicker);
+  });
+
+  (function(){
+    var auto = document.createElement("button");
+    auto.type = "button";
+    auto.className = "sw auto";
+    auto.setAttribute("aria-label", "Automatic background, matches theme");
+    auto.addEventListener("click", function(){ setBg(null); });
+    bgSwatches.insertBefore(auto, bgPicker);
+  })();
+  BG_PRESETS.forEach(function(hex){
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "sw";
+    b.style.background = hex;
+    b.dataset.hex = hex;
+    b.setAttribute("aria-label", "Background colour " + hex);
+    b.addEventListener("click", function(){ setBg(hex); });
+    bgSwatches.insertBefore(b, bgPicker);
+  });
+
+  var stageWraps = [];
+  for(var s = 0; s < MAX_STAGES; s++){
+    (function(idx){
+      var wrap = document.createElement("label");
+      wrap.setAttribute("for", "stage" + idx);
+      var tag = document.createElement("span");
+      tag.className = "n";
+      tag.textContent = ("0" + (idx + 1)).slice(-2);
+      var input = document.createElement("input");
+      input.type = "text";
+      input.id = "stage" + idx;
+      input.value = state.names[idx];
+      input.maxLength = 20;
+      input.addEventListener("input", function(){
+        state.names[idx] = input.value;
+        save();
+      });
+      wrap.appendChild(tag);
+      wrap.appendChild(input);
+      stageGrid.appendChild(wrap);
+      stageWraps.push(wrap);
+    })(s);
+  }
+
+  /* only the first N name fields apply while fewer stages are active;
+     the rest stay filled in but out of the way, ready if stages increase again */
+  function updateStageVisibility(){
+    for(var i = 0; i < MAX_STAGES; i++) stageWraps[i].hidden = i >= state.stages;
+  }
+
+  speed.addEventListener("input", function(){
+    state.cycle = Number(speed.value);
+    speedVal.textContent = speed.value;
+    save();
+  });
+  function updateSubtitle(){
+    subtitle.textContent = STAGE_WORDS[state.stages] + "-stage programme bargraph";
+  }
+  stagesIn.addEventListener("input", function(){
+    state.stages = Number(stagesIn.value);
+    stagesVal.textContent = stagesIn.value;
+    updateStageVisibility();
+    updateSubtitle();
+    layout();
+    updateExportPreview();
+    save();
+  });
+  stepChk.addEventListener("change", function(){
+    state.stepReveal = stepChk.checked;
+    save();
+  });
+  count.addEventListener("input", function(){
+    state.count = Number(count.value);
+    countVal.textContent = count.value;
+    save();
+  });
+  widthIn.addEventListener("input", function(){
+    state.width = Number(widthIn.value);
+    widthVal.textContent = widthIn.value;
+    layout();
+    updateExportPreview();
+    save();
+  });
+  heightIn.addEventListener("input", function(){
+    state.height = Number(heightIn.value);
+    heightVal.textContent = heightIn.value;
+    layout();
+    updateExportPreview();
+    save();
+  });
+  gapIn.addEventListener("input", function(){
+    state.gap = Number(gapIn.value);
+    gapVal.textContent = gapIn.value;
+    save();
+  });
+  colorPicker.addEventListener("input", function(){ setColor(colorPicker.value); });
+  bgPicker.addEventListener("input", function(){ setBg(bgPicker.value); });
+  hideTextChk.addEventListener("change", function(){
+    state.hideText = hideTextChk.checked;
+    layout();
+    updateExportPreview();
+    save();
+  });
+  fontSel.addEventListener("change", function(){ setFont(fontSel.value); layout(); updateExportPreview(); });
+  loopChk.addEventListener("change", function(){ state.loop = loopChk.checked; save(); });
+  btnPlay.addEventListener("click", function(){
+    if(!state.playing && progress >= 1) resetRun();
+    setPlaying(!state.playing);
+  });
+  btnReset.addEventListener("click", function(){ resetRun(); setPlaying(true); });
+  window.addEventListener("resize", layout);
+  if(window.matchMedia){
+    var dark = window.matchMedia("(prefers-color-scheme: dark)");
+    if(dark.addEventListener) dark.addEventListener("change", readTheme);
+  }
+
+  /* ---------- video export ---------- */
+
+  var MIMES = [
+    "video/mp4;codecs=avc1.42E01E",
+    "video/webm;codecs=vp9",
+    "video/webm;codecs=vp8",
+    "video/webm"
+  ];
+  var chunks = [], recEnd = 0, recMime = "", saver = null, recW = 0, recH = 0;
+
+  if(window.claude && window.claude.use){
+    window.claude.use("downloads").then(function(d){ saver = d; }, function(){});
+  }
+
+  var MAX_DIM = 3840;   /* a safe ceiling most encoders and GPUs accept */
+
+  function exportSize(){
+    var scale = Math.min(state.exportScale, MAX_DIM / cssW, MAX_DIM / geo.height);
+    return {
+      scale: scale,
+      w: Math.max(1, Math.round(cssW * scale)),
+      h: Math.max(1, Math.round(geo.height * scale))
+    };
+  }
+
+  function updateExportPreview(){
+    if(recorder) return;
+    var sz = exportSize();
+    exportStatus.textContent = "Exports at " + sz.w + "×" + sz.h + "px, one full sweep.";
+  }
+
+  function pickMime(w, h){
+    if(!window.MediaRecorder || !canvas.captureStream) return [];
+    /* the baseline H.264 profile chokes above roughly HD dimensions,
+       so hand large recordings to VP9/WebM first */
+    var order = Math.max(w, h) > 1280
+      ? [MIMES[1], MIMES[2], MIMES[3], MIMES[0]]
+      : MIMES;
+    var supported = [];
+    for(var i = 0; i < order.length; i++){
+      if(MediaRecorder.isTypeSupported(order[i])) supported.push(order[i]);
+    }
+    return supported;
+  }
+
+  function setExportUI(recording){
+    btnExport.disabled = recording;
+    btnPlay.disabled = recording;
+    btnReset.disabled = recording;
+    widthIn.disabled = recording;
+    heightIn.disabled = recording;
+    gapIn.disabled = recording;
+    count.disabled = recording;
+    fontSel.disabled = recording;
+    exportScaleSel.disabled = recording;
+    btnExport.textContent = recording ? "Recording" : "Record video";
+  }
+
+  function startExport(){
+    var sz = exportSize();
+    var candidates = pickMime(sz.w, sz.h);
+    if(!candidates.length){
+      exportStatus.textContent = "This browser can't record canvas video.";
+      return;
+    }
+
+    /* bump the canvas's actual pixel buffer for the recording; its on-page
+       CSS size is untouched, so nothing about the layout visibly changes */
+    canvas.width = sz.w;
+    canvas.height = sz.h;
+    ctx.setTransform(sz.scale, 0, 0, sz.scale, 0, 0);
+    recW = sz.w;
+    recH = sz.h;
+
+    var stream = canvas.captureStream(60);
+    var bitrate = Math.min(40000000, Math.max(3000000,
+      Math.round(8000000 * (sz.w * sz.h) / (960 * 120))));
+
+    recorder = null;
+    for(var i = 0; i < candidates.length && !recorder; i++){
+      try{
+        recorder = new MediaRecorder(stream, { mimeType: candidates[i], videoBitsPerSecond: bitrate });
+        recMime = candidates[i];
+      }catch(e){ /* try the next candidate */ }
+    }
+    if(!recorder){
+      layout();
+      exportStatus.textContent = "Recorder wouldn't start in this browser.";
+      return;
+    }
+
+    chunks = [];
+    recorder.ondataavailable = function(e){ if(e.data && e.data.size) chunks.push(e.data); };
+    recorder.onstop = finishExport;
+    resetRun();
+    setPlaying(true);
+    setExportUI(true);
+    recEnd = 0;
+    recorder.start();
+    exportStatus.textContent = "Recording " + sz.w + "×" + sz.h + "px, " + state.cycle + "s. Keep this tab in front.";
+  }
+
+  function finishExport(){
+    var ext = recMime.indexOf("mp4") > -1 ? "mp4" : "webm";
+    var blob = new Blob(chunks, { type: recMime.split(";")[0] });
+    var filename = "phase-shift." + ext;
+    var kb = Math.round(blob.size / 1024);
+    var dims = recW + "×" + recH + "px";
+    recorder = null;
+    chunks = [];
+    layout();          /* hand the canvas's pixel size back to the normal display scale */
+    setExportUI(false);
+
+    if(saver && saver.save){
+      exportStatus.textContent = "Saving " + filename + " (" + dims + ", " + kb + " KB)";
+      saver.save({ filename: filename, data: blob }).then(function(){
+        exportStatus.textContent = "Saved " + filename + " (" + dims + ", " + kb + " KB)";
+      }, function(err){
+        exportStatus.textContent = (err && err.code === "declined")
+          ? "Save cancelled."
+          : "Couldn't save the file here.";
+      });
+      return;
+    }
+
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 30000);
+    exportStatus.textContent = "Downloaded " + filename + " (" + dims + ", " + kb + " KB)";
+  }
+
+  btnExport.addEventListener("click", startExport);
+  exportScaleSel.addEventListener("change", function(){
+    state.exportScale = Number(exportScaleSel.value);
+    updateExportPreview();
+    save();
+  });
+  if(!window.MediaRecorder || !canvas.captureStream){
+    btnExport.disabled = true;
+    exportStatus.textContent = "Video recording isn't available in this browser.";
+  }
+
+  /* ---------- loop ---------- */
+
+  var last = 0;
+  function frame(now){
+    if(!last) last = now;
+    var dt = Math.min(now - last, 120);
+    last = now;
+
+    if(state.playing){
+      if(holdUntil){
+        if(now >= holdUntil){
+          holdUntil = 0;
+          if(recorder){
+            recorder.stop();
+            resetRun();
+          }else if(state.loop){
+            resetRun();
+          }else{
+            setPlaying(false);
+          }
+        }
+      }else{
+        progress += dt / (state.cycle * 1000);
+        if(progress >= 1){
+          progress = 1;
+          holdUntil = now + (recorder ? 700 : 1000);
+        }
+      }
+    }
+
+    tickState(now);
+    draw(now);
+    if(recorder && !holdUntil){
+      var left = Math.max(0, Math.ceil((1 - progress) * state.cycle));
+      exportStatus.textContent = "Recording, " + left + "s left.";
+    }
+    requestAnimationFrame(frame);
+  }
+
+  /* ---------- boot ---------- */
+
+  function start(seed){
+    if(seed && typeof seed.progress === "number") progress = seed.progress;
+    speed.value = state.cycle;
+    speedVal.textContent = String(state.cycle);
+    count.value = state.count;
+    countVal.textContent = String(state.count);
+    widthIn.value = state.width;
+    widthVal.textContent = String(state.width);
+    heightIn.value = state.height;
+    heightVal.textContent = String(state.height);
+    gapIn.value = state.gap;
+    gapVal.textContent = String(state.gap);
+    fontSel.value = state.font;
+    loopChk.checked = state.loop;
+    hideTextChk.checked = state.hideText;
+    stepChk.checked = state.stepReveal;
+    stagesIn.value = state.stages;
+    stagesVal.textContent = String(state.stages);
+    updateStageVisibility();
+    updateSubtitle();
+    exportScaleSel.value = String(state.exportScale);
+    setColor(state.color);
+    setBg(state.bgCustom ? state.bgColor : null);
+    setFont(state.font);
+    setPlaying(true);
+    readTheme();
+    layout();
+    updateExportPreview();
+    if(document.fonts && document.fonts.ready) document.fonts.ready.then(function(){
+      layout();
+      updateExportPreview();
+    });
+    requestAnimationFrame(frame);
+  }
+
+  if(window.claude && window.claude.hot){
+    window.claude.hot.snapshot(function(){ return { progress: progress }; });
+    window.claude.hot.ready ? window.claude.hot.ready(start) : start(window.claude.hot.data || {});
+  }else{
+    start({});
+  }
+})();
+</script>
+</body>
+</html>
