@@ -1,860 +1,991 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>Hero Orbit</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Driftloop</title>
+<meta name="description" content="A looping orb animation tool — tune speed and range, recolor each sphere, and export a seamless video loop.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,440;9..144,600;9..144,700&family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-  :root{
-    --bg-panel:#0e0f13;
-    --bg-panel-2:#000000;
-    --line:#24262d;
-    --text:#e8eaed;
-    --text-dim:#8b909a;
-    --accent:#ff2ea6;
+  html { color-scheme: light dark; }
+  body { margin: 0; font-size: 14px; }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+
+  :root {
+    --bg: #f0ece2;
+    --surface: #ffffff;
+    --surface-2: #e8e1d1;
+    --border: #d9d0ba;
+    --text: #211e17;
+    --text-dim: #746c5b;
+    --accent: #c17a20;
+    --accent-strong: #a4670f;
+    --accent-text: #fffaf0;
+    --shadow: rgba(33, 28, 16, 0.14);
+    --focus: #a4670f;
   }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #16140f;
+      --surface: #201c14;
+      --surface-2: #2a2418;
+      --border: #3c3421;
+      --text: #f1ecdf;
+      --text-dim: #a89c81;
+      --accent: #e2a53f;
+      --accent-strong: #f0b957;
+      --accent-text: #211a0a;
+      --shadow: rgba(0, 0, 0, 0.45);
+      --focus: #e2a53f;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #16140f;
+    --surface: #201c14;
+    --surface-2: #2a2418;
+    --border: #3c3421;
+    --text: #f1ecdf;
+    --text-dim: #a89c81;
+    --accent: #e2a53f;
+    --accent-strong: #f0b957;
+    --accent-text: #211a0a;
+    --shadow: rgba(0, 0, 0, 0.45);
+    --focus: #e2a53f;
+  }
+
   * { box-sizing: border-box; }
-  html,body{
-    margin:0; height:100%;
-    background:var(--bg-panel-2);
-    color:var(--text);
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-  }
-  .app{ display:flex; height:100vh; width:100vw; overflow:hidden; }
 
-  .sidebar{
-    width: 320px; min-width:320px;
-    background: var(--bg-panel);
-    border-right: 1px solid var(--line);
-    display:flex; flex-direction:column;
-    overflow-y:auto;
-  }
-  .sidebar-head{ padding: 22px 20px 16px; border-bottom:1px solid var(--line); }
-  .sidebar-head .eyebrow{
-    font-size:10.5px; letter-spacing:.12em; text-transform:uppercase;
-    color:var(--accent); font-weight:600; margin-bottom:6px; font-family: 'SF Mono', ui-monospace, monospace;
-  }
-  .sidebar-head h1{ font-size:18px; margin:0 0 4px; font-weight:600; letter-spacing:-.01em; }
-  .sidebar-head p{ font-size:12.5px; color:var(--text-dim); margin:0; line-height:1.5; }
-
-  .section{ padding: 18px 20px; border-bottom:1px solid var(--line); }
-  .section h2{
-    font-size:11px; text-transform:uppercase; letter-spacing:.08em;
-    color:var(--text-dim); margin:0 0 12px; font-weight:600;
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Manrope", ui-sans-serif, system-ui, sans-serif;
+    padding: 28px 20px 48px;
+    min-height: 100vh;
   }
 
-  button{
-    font-family:inherit; font-size:13px; font-weight:600; cursor:pointer;
-    border-radius:7px; border:1px solid transparent; padding:10px 14px;
-    width:100%; transition: transform .08s ease, background .15s, border-color .15s;
+  .app {
+    max-width: 1200px;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 22px;
   }
-  button:active{ transform: scale(0.98); }
-  .btn-primary{ background:var(--accent); color:#180311; }
-  .btn-primary:hover{ background:#ff59ba; }
-  .btn-secondary{ background:transparent; color:var(--text); border-color:var(--line); }
-  .btn-secondary:hover{ border-color:var(--accent); color:var(--accent); }
 
-  label.field{ display:block; font-size:11.5px; color:var(--text-dim); margin: 14px 0 6px; }
-  label.field:first-child{ margin-top:0; }
-  input[type=range]{ width:100%; accent-color: var(--accent); background:transparent; }
-  .range-val{ float:right; color:var(--accent); font-family:ui-monospace,monospace; font-size:11px; }
-  input[type=number]{
-    width:100%; background:var(--bg-panel-2); border:1px solid var(--line); color:var(--text);
-    border-radius:6px; padding:8px 10px; font-family:inherit; font-size:13px;
+  header {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }
-  .checkbox-row{ display:flex; align-items:center; gap:8px; font-size:12.5px; color:var(--text-dim); margin-top:12px; cursor:pointer; }
-  .checkbox-row input{ accent-color: var(--accent); }
 
-  .color-row{ display:flex; align-items:center; gap:10px; margin-top:2px; }
-  .color-row input[type=color]{
-    width:40px; height:36px; border-radius:7px; border:1px solid var(--line); background:none; cursor:pointer; padding:2px;
+  h1 {
+    font-family: "Fraunces", Georgia, serif;
+    font-optical-sizing: auto;
+    font-weight: 600;
+    font-size: clamp(1.7rem, 1.3rem + 1.6vw, 2.5rem);
+    letter-spacing: -0.01em;
+    margin: 0;
+    text-wrap: balance;
   }
-  .color-row span{ font-size:12px; color:var(--text-dim); font-family:ui-monospace,monospace; }
 
-  .hint{ font-size:11.5px; color:var(--text-dim); line-height:1.6; margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }
-  .hint b{ color:var(--text); }
-  .footer-space{ flex:1; }
-  .progress-line{ font-size:11px; color:var(--accent); font-family:ui-monospace,monospace; margin-top:10px; min-height:14px; }
+  .tagline {
+    margin: 0;
+    color: var(--text-dim);
+    font-size: 0.98rem;
+    max-width: 46ch;
+  }
 
-  .canvas-wrap{
-    flex:1; position:relative; display:flex; align-items:center; justify-content:center;
-    background: #050506; overflow:hidden; padding: 40px;
-    background-image:
-      linear-gradient(rgba(255,255,255,.035) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255,255,255,.035) 1px, transparent 1px);
-    background-size: 40px 40px;
+  main {
+    display: grid;
+    grid-template-columns: minmax(0, 1.35fr) minmax(260px, 0.85fr);
+    gap: 20px;
+    align-items: start;
   }
-  .stage-card{
-    width: 100%; max-width: 1100px; aspect-ratio: 1600/600;
-    box-shadow: 0 20px 70px -10px rgba(255,46,166,.12), 0 0 0 1px rgba(255,255,255,.08);
-    border-radius: 10px; overflow:hidden; position:relative;
+
+  @media (max-width: 760px) {
+    main { grid-template-columns: 1fr; }
   }
-  #stage{ display:block; width:100%; height:100%; }
-  .top-badge{
-    position:absolute; top:14px; left:14px; font-family:ui-monospace,monospace;
-    font-size:11px; color:#ffffff99; background:#ffffff14; border:1px solid #ffffff1a;
-    padding:6px 10px; border-radius:20px; backdrop-filter: blur(4px);
+
+  .stage-wrap {
+    position: relative;
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    max-width: 780px;
+    margin: 0 auto;
+    border-radius: 22px;
+    overflow: hidden;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    box-shadow: 0 18px 44px -22px var(--shadow);
+  }
+
+  canvas#stage {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+
+  .rec-badge {
+    position: absolute;
+    top: 14px;
+    left: 14px;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding: 6px 12px 6px 10px;
+    border-radius: 999px;
+    background: rgba(20, 16, 8, 0.72);
+    color: #fff4e0;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.78rem;
+    letter-spacing: 0.02em;
+    backdrop-filter: blur(4px);
+  }
+
+  .rec-badge[hidden] { display: none; }
+
+  .rec-badge .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #ef4d4d;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .rec-badge .dot { animation: pulse 1.1s ease-in-out infinite; }
+  }
+
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.35; }
+  }
+
+  .rail {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+
+  .control-group {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 16px 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .control-row {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .control-row label,
+  .group-label {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--text-dim);
+  }
+
+  output {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.9rem;
+    color: var(--text);
+  }
+
+  input[type="range"] {
+    width: 100%;
+    accent-color: var(--accent);
+    height: 22px;
+  }
+
+  select {
+    width: 100%;
+    background: var(--surface-2);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 9px;
+    padding: 9px 10px;
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.88rem;
+  }
+
+  .swatch-row {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+  }
+
+  .swatch {
+    display: flex;
+    align-items: center;
+    gap: 9px;
+    padding: 7px 9px;
+    background: var(--surface-2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    cursor: pointer;
+  }
+
+  .swatch input[type="color"] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    border: 1px solid var(--border);
+    padding: 0;
+    background: none;
+    flex: none;
+    cursor: pointer;
+  }
+  .swatch input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; border-radius: 50%; }
+  .swatch input[type="color"]::-webkit-color-swatch { border: none; border-radius: 50%; }
+  .swatch input[type="color"]::-moz-color-swatch { border: none; border-radius: 50%; }
+
+  .swatch span {
+    font-size: 0.82rem;
+    color: var(--text);
+  }
+
+  button#exportBtn {
+    appearance: none;
+    border: none;
+    border-radius: 11px;
+    padding: 12px 16px;
+    background: var(--accent);
+    color: var(--accent-text);
+    font-family: "Manrope", sans-serif;
+    font-weight: 700;
+    font-size: 0.94rem;
+    cursor: pointer;
+  }
+  button#exportBtn:hover:not(:disabled) { background: var(--accent-strong); }
+  button#exportBtn:disabled { opacity: 0.55; cursor: default; }
+
+  button#cancelBtn {
+    appearance: none;
+    border: 1px solid var(--border);
+    border-radius: 11px;
+    padding: 10px 16px;
+    background: transparent;
+    color: var(--text);
+    font-family: "Manrope", sans-serif;
+    font-weight: 600;
+    font-size: 0.88rem;
+    cursor: pointer;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    button, input[type="color"], .swatch { transition: background 0.15s ease, opacity 0.15s ease; }
+  }
+
+  .hint {
+    margin: 2px 0 0;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+    line-height: 1.4;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  .sr-only {
+    position: absolute;
+    width: 1px; height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
   }
 </style>
 </head>
+
 <body>
 <div class="app">
-  <div class="sidebar">
-    <div class="sidebar-head">
-      <div class="eyebrow">Reciprocal Space</div>
-      <h1>Hero Orbit</h1>
-      <p>A real 3D perspective view from inside a cluster of tilted rings, with dots making full orbits around them — a seamlessly loopable hero-section animation.</p>
-    </div>
+  <header>
+    <h1>Driftloop</h1>
+    <p class="tagline">Three spheres swing, orbit, and drift apart on a seamless loop. Tune the motion, recolor the set, export a clip.</p>
+  </header>
 
-    <div class="section">
-      <h2>View</h2>
-      <div style="display:flex; gap:8px;">
-        <button class="btn-primary" id="btn-view-perspective">Perspective</button>
-        <button class="btn-secondary" id="btn-view-flat">Flat</button>
-      </div>
-      <div style="display:flex; gap:8px; margin-top:8px;">
-        <button class="btn-secondary" id="btn-view-merge" style="width:100%;">Merge</button>
-      </div>
-      <div class="hint" style="margin-top:10px; padding-top:0; border-top:none;">
-        <b>Perspective</b> is the immersive view from inside the ring
-        cluster — each dot is hidden for the half of its orbit that falls
-        behind you. <b>Flat</b> steps back to a straight-on view of four
-        concentric circles, so every ring and every dot's full orbit stays
-        visible the whole time. <b>Merge</b> is three orbits that drift
-        together into one shared orbit carrying all three spheres, then
-        drift back apart — looping seamlessly.
+  <main>
+    <div class="stage-wrap">
+      <canvas id="stage"></canvas>
+      <div class="rec-badge" id="recBadge" hidden>
+        <span class="dot"></span>
+        <span id="recTime">0.0s</span> / <span id="recTotal">0.0s</span>
       </div>
     </div>
 
-    <div class="section" id="section-layout" style="display:none;">
-      <h2>Layout</h2>
-      <label class="field" style="margin-top:0;">Orbit size <span class="range-val" id="val-flat-size">65</span></label>
-      <input type="range" id="rng-flat-size" min="20" max="90" value="65">
+    <aside class="rail">
+      <section class="control-group">
+        <div class="control-row">
+          <label for="speedSlider">Speed</label>
+          <output id="speedValue" for="speedSlider">1.00×</output>
+        </div>
+        <input type="range" id="speedSlider" min="25" max="300" step="5" value="100">
+      </section>
 
-      <label class="field">Ring spacing <span class="range-val" id="val-flat-spacing">15</span></label>
-      <input type="range" id="rng-flat-spacing" min="2" max="30" value="15">
+      <section class="control-group">
+        <div class="control-row">
+          <label for="rangeSlider">Range</label>
+          <output id="rangeValue" for="rangeSlider">170 px</output>
+        </div>
+        <input type="range" id="rangeSlider" min="0" max="340" step="5" value="170">
+      </section>
 
-      <label class="field">Line width taper <span class="range-val" id="val-flat-taper">0</span></label>
-      <input type="range" id="rng-flat-taper" min="-100" max="100" value="0">
-      <div class="hint" style="margin-top:10px; padding-top:0; border-top:none;">
-        <b>Orbit size</b> sets how big the outermost circle is.
-        <b>Ring spacing</b> sets the gap between each concentric circle.
-        <b>Line width taper</b> tapers thickness across the rings —
-        negative thins them going outward, positive thickens them going
-        outward, 0 keeps them all the same width.
-      </div>
-    </div>
+      <section class="control-group colors">
+        <span class="group-label">Colors</span>
+        <div class="swatch-row">
+          <label class="swatch">
+            <input type="color" id="colorA" value="#2b2566">
+            <span>Sphere 1</span>
+          </label>
+          <label class="swatch">
+            <input type="color" id="colorB" value="#f0c94a">
+            <span>Sphere 2</span>
+          </label>
+          <label class="swatch">
+            <input type="color" id="colorC" value="#4ea8de">
+            <span>Sphere 3</span>
+          </label>
+          <label class="swatch">
+            <input type="color" id="colorBg" value="#edece6">
+            <span>Background</span>
+          </label>
+        </div>
+      </section>
 
-    <div class="section" id="section-merge" style="display:none;">
-      <h2>Merge</h2>
-      <label class="field" style="margin-top:0;">Cycle length (orbits) <span class="range-val" id="val-merge-cycles">4</span></label>
-      <input type="range" id="rng-merge-cycles" min="1" max="10" value="4">
-      <div class="hint" style="margin-top:10px; padding-top:0; border-top:none;">
-        How many orbit rotations one full drift-together-and-apart cycle
-        takes. Tied to <b>Orbit speed</b>, so it always lands back on its
-        starting spread exactly once per cycle — that's what keeps it
-        loopable.
-      </div>
-    </div>
+      <section class="control-group export">
+        <div class="control-row">
+          <label for="formatSelect">Format</label>
+          <output id="formatNote" for="formatSelect">—</output>
+        </div>
+        <select id="formatSelect">
+          <option value="mp4">MP4</option>
+          <option value="webm">WebM</option>
+        </select>
 
-    <div class="section">
-      <h2>Colors</h2>
-      <label class="field" style="margin-top:0;">Top outer line</label>
-      <div class="color-row">
-        <input type="color" id="col-line-0" value="#aab0bd">
-        <span id="val-col-line-0">#AAB0BD</span>
-      </div>
-      <label class="field">Top inner line</label>
-      <div class="color-row">
-        <input type="color" id="col-line-1" value="#aab0bd">
-        <span id="val-col-line-1">#AAB0BD</span>
-      </div>
-      <label class="field">Bottom inner line</label>
-      <div class="color-row">
-        <input type="color" id="col-line-2" value="#aab0bd">
-        <span id="val-col-line-2">#AAB0BD</span>
-      </div>
-      <label class="field">Bottom outer line</label>
-      <div class="color-row">
-        <input type="color" id="col-line-3" value="#aab0bd">
-        <span id="val-col-line-3">#AAB0BD</span>
-      </div>
-      <label class="field">Top outer dot</label>
-      <div class="color-row">
-        <input type="color" id="col-dot-0" value="#ff2ea6">
-        <span id="val-col-dot-0">#FF2EA6</span>
-      </div>
-      <label class="field">Top inner dot</label>
-      <div class="color-row">
-        <input type="color" id="col-dot-1" value="#ff2ea6">
-        <span id="val-col-dot-1">#FF2EA6</span>
-      </div>
-      <label class="field">Bottom inner dot</label>
-      <div class="color-row">
-        <input type="color" id="col-dot-2" value="#ff2ea6">
-        <span id="val-col-dot-2">#FF2EA6</span>
-      </div>
-      <label class="field">Bottom outer dot</label>
-      <div class="color-row">
-        <input type="color" id="col-dot-3" value="#ff2ea6">
-        <span id="val-col-dot-3">#FF2EA6</span>
-      </div>
-      <label class="checkbox-row">
-        <input type="checkbox" id="chk-bg" checked>
-        Solid background
-      </label>
-      <div class="color-row" id="row-col-bg" style="margin-top:8px;">
-        <input type="color" id="col-bg" value="#050506">
-        <span id="val-col-bg">#050506</span>
-      </div>
-    </div>
-
-    <div class="section">
-      <h2>Motion</h2>
-      <label class="field" style="margin-top:0;">Orbit speed <span class="range-val" id="val-speed">1.0x</span></label>
-      <input type="range" id="rng-speed" min="20" max="300" value="100">
-
-      <label class="field">Line thickness <span class="range-val" id="val-thickness">2.0</span></label>
-      <input type="range" id="rng-thickness" min="10" max="60" value="20">
-
-      <label class="field">Dot size <span class="range-val" id="val-dotsize">7</span></label>
-      <input type="range" id="rng-dotsize" min="3" max="16" value="7">
-
-      <div id="row-dotcount">
-        <label class="field">Dot count <span class="range-val" id="val-dotcount">3</span></label>
-        <input type="range" id="rng-dotcount" min="1" max="16" value="3">
-      </div>
-
-      <label class="checkbox-row">
-        <input type="checkbox" id="chk-glow" checked>
-        Dot glow
-      </label>
-    </div>
-
-    <div class="section">
-      <h2>Export</h2>
-      <label class="field" style="margin-top:0;">Loops to export</label>
-      <input type="number" id="num-loops" min="1" max="10" value="2">
-      <label class="field">Resolution</label>
-      <div style="display:flex; gap:8px;">
-        <button class="btn-primary" id="btn-res-1x">1600×600</button>
-        <button class="btn-secondary" id="btn-res-2x">3200×1200</button>
-      </div>
-      <button class="btn-secondary" id="btn-export-video" style="margin-top:14px;">Export video (.mp4)</button>
-      <div class="hint" style="margin-top:4px; padding-top:0; border-top:none;">
-        Records the live animation with Chrome/Edge's own built-in
-        <b>MediaRecorder</b> — no external encoder. One "loop" is exactly
-        one period of the orbit motion, so the exported clip always ends
-        back where it started and plays seamlessly on repeat. Needs Chrome
-        or Edge.
-      </div>
-      <div class="progress-line" id="progress"></div>
-    </div>
-
-    <div class="footer-space"></div>
-    <div class="section" style="border-bottom:none;">
-      <div class="hint">
-        Each dot makes a full 360° orbit of its own ring on a shared
-        timing — it's simply not drawn while behind the camera's near
-        clip plane — so the whole scene returns to its exact starting
-        state once per orbit period — that's what makes it loop cleanly
-        both on screen and in the exported MP4.
-      </div>
-    </div>
-  </div>
-
-  <div class="canvas-wrap">
-    <div class="top-badge" id="badge">1600×600 · live</div>
-    <div class="stage-card">
-      <canvas id="stage" width="1600" height="600"></canvas>
-    </div>
-  </div>
+        <div class="control-row">
+          <label for="loopsSelect">Loops to export</label>
+          <output id="durationValue" for="loopsSelect">10.0s</output>
+        </div>
+        <select id="loopsSelect">
+          <option value="1">1 loop</option>
+          <option value="2" selected>2 loops</option>
+          <option value="3">3 loops</option>
+          <option value="4">4 loops</option>
+          <option value="6">6 loops</option>
+          <option value="8">8 loops</option>
+        </select>
+        <button id="exportBtn" type="button" disabled>Loading exporter…</button>
+        <button id="cancelBtn" type="button" hidden>Cancel recording</button>
+        <p class="hint" id="exportHint">Recording locks the controls so the exported clip loops perfectly.</p>
+      </section>
+    </aside>
+  </main>
+  <div class="sr-only" id="statusLive" aria-live="polite"></div>
 </div>
 
 <script>
-(function(){
-  const W = 1600, H = 600;
+(function () {
+  "use strict";
 
-  // ====================== 3D RING DEFINITIONS ======================
-  // The camera sits at the shared center of a cluster of circular rings —
-  // literally at the origin, looking down +Z — with each ring's plane
-  // tilted by `theta` off the view axis. Because the camera isn't exactly
-  // IN the ring's plane, the ring projects to a real curve rather than a
-  // degenerate straight line: the half of the ring in front of the camera
-  // (z > NEAR_Z) sweeps across the screen — close to the camera (and
-  // therefore flung out toward the screen edges) near phi=0/pi, and at
-  // its farthest (dead ahead) around phi=pi/2 — which is exactly the
-  // "nearly straight far out, pinches near the middle" look, except now
-  // it's real perspective, not an arbitrary formula. The other half of
-  // the ring (z <= NEAR_Z) is literally behind the viewer and is never
-  // drawn — see the dot-orbit section below for why that matters.
-  //
-  // point(phi) = ( R*cos(phi), Yc + R*sin(phi)*cos(theta), R*sin(phi)*sin(theta) )
-  //
-  // Naively, Yc alone barely moves where the curve's near-center "waist"
-  // sits on screen — at phi=pi/2 the R*cos(theta) term dominates and
-  // throws the whole ring far off-canvas. So instead of hand-picking Yc,
-  // each ring is specified by `waistPx` (how many pixels its waist sits
-  // from vertical screen-center, at the design resolution) and Yc is
-  // solved backwards from that: it cancels R*cos(theta) exactly at
-  // phi=pi/2, leaving only the requested pixel offset there, while still
-  // letting the curve flare out asymptotically toward the edges.
-  const FOCAL_FACTOR = 1.2;
-  // `flip` swaps theta for (pi - theta): cos flips sign while sin (and
-  // therefore depth/visibility) stays identical, mirroring the curve from
-  // bowing above center to bowing below it — a top/bottom pair otherwise
-  // sharing the same tilt and waist gap.
-  function ringFromWaist(R, theta, waistPx, flip){
-    const t = flip ? Math.PI - theta : theta;
-    const focal = H * FOCAL_FACTOR; // baked in at design resolution — see project() for why this still scales correctly at other export sizes
-    const farZ = R * Math.sin(t);
-    // Sign of eps has to flip along with theta: a non-flipped ring already
-    // bows away from center toward the top at its edges (cos(t) > 0), so a
-    // small negative eps keeps its waist just above center too; a flipped
-    // ring bows toward the bottom (cos(t) < 0) and needs the mirror-image
-    // positive eps to keep its own waist just below center.
-    const eps = (flip ? 1 : -1) * waistPx * farZ / focal;
-    return { R, theta: t, Yc: -R * Math.cos(t) + eps };
-  }
-  const RINGS = [
-    ringFromWaist(1, 0.62, 80, false), // top outer
-    ringFromWaist(1, 0.30, 18, false), // top inner
-    ringFromWaist(1, 0.30, 18, true),  // bottom inner
-    ringFromWaist(1, 0.62, 80, true),  // bottom outer
+  var canvas = document.getElementById("stage");
+  var ctx = canvas.getContext("2d");
+  var stageWrap = canvas.parentElement;
+  var recBadge = document.getElementById("recBadge");
+  var recTimeEl = document.getElementById("recTime");
+  var recTotalEl = document.getElementById("recTotal");
+  var statusLive = document.getElementById("statusLive");
+
+  var speedSlider = document.getElementById("speedSlider");
+  var speedValue = document.getElementById("speedValue");
+  var rangeSlider = document.getElementById("rangeSlider");
+  var rangeValue = document.getElementById("rangeValue");
+  var loopsSelect = document.getElementById("loopsSelect");
+  var durationValue = document.getElementById("durationValue");
+  var formatSelect = document.getElementById("formatSelect");
+  var formatNote = document.getElementById("formatNote");
+  var exportBtn = document.getElementById("exportBtn");
+  var cancelBtn = document.getElementById("cancelBtn");
+  var exportHint = document.getElementById("exportHint");
+
+  var colorInputs = {
+    a: document.getElementById("colorA"),
+    b: document.getElementById("colorB"),
+    c: document.getElementById("colorC"),
+    bg: document.getElementById("colorBg")
+  };
+
+  var railInputs = [speedSlider, rangeSlider, loopsSelect, formatSelect,
+    colorInputs.a, colorInputs.b, colorInputs.c, colorInputs.bg];
+
+  // ---- motion model -------------------------------------------------
+  // Each sphere orbits the shared centroid at its own turn count and
+  // direction while breathing in and out, with a second harmonic layered
+  // on both the radius and the angle so the motion never repeats the
+  // same shape twice within a cycle. Every frequency used is an integer
+  // multiple of the base phase, so the whole thing still closes exactly
+  // after one period — the export stays seamlessly loopable.
+  // Each sphere circles a home point of its own, on a plane tilted by an
+  // inclination and swung round by a node angle. The home points breathe
+  // toward and away from the centre on staggered timing. Keeping the homes
+  // apart is what makes them gather into a cluster instead of stacking:
+  // orbits that all shared the origin put every sphere through the same
+  // point, and whoever arrived nearest simply eclipsed the rest.
+  var SPHERES = [
+    { key: "a", radiusFrac: 0.175, home: [0.33, -0.94, 0.35], homeDist: 1.00,
+      orbitRadius: 0.34, orbitTurns: 1, wobblePhase: 0.00, angleWobble: 0.55,
+      inclination: 1.05, node: 0.35, breathePhase: -0.45 },
+    { key: "b", radiusFrac: 0.135, home: [-0.60, -0.38, -0.55], homeDist: 0.78,
+      orbitRadius: 0.42, orbitTurns: -1, wobblePhase: 2.15, angleWobble: 0.75,
+      inclination: -1.28, node: 2.10, breathePhase: 0.00 },
+    { key: "c", radiusFrac: 0.175, home: [0.23, 0.35, 0.45], homeDist: 0.66,
+      orbitRadius: 0.37, orbitTurns: 2, wobblePhase: 4.25, angleWobble: 0.45,
+      inclination: 0.95, node: 4.05, breathePhase: 0.45 }
   ];
-  const NEAR_Z = 0.09; // camera-space clip plane — anything behind this is "not visible"
-  function ringPoint3D(ring, phi){
-    const s = Math.sin(phi);
-    return {
-      x: ring.R * Math.cos(phi),
-      y: ring.Yc + ring.R * s * Math.cos(ring.theta),
-      z: ring.R * s * Math.sin(ring.theta),
-    };
-  }
+  // How far in the homes are allowed to draw at their tightest. Below about
+  // a third, the cluster collapses back into an eclipse.
+  var CLUSTER_MIN = 0.35;
+  var BREATHE_WOBBLE = 0.07;
+  var FOCAL_REF = 620; // camera distance in reference units — near enough
+                       // that depth reads as a ~1.4x swing in apparent size
 
-  // Pinhole projection: camera at the origin looking down +Z. Focal length
-  // is proportional to canvas height, same as in ringFromWaist above, so
-  // the field of view (and every waistPx offset) looks identical at any
-  // export resolution. Returns null for anything at/behind the near clip
-  // plane.
-  function project(pt3d, cw, ch){
-    if(pt3d.z <= NEAR_Z) return null;
-    const focal = ch * FOCAL_FACTOR;
-    return {
-      x: cw/2 + focal * pt3d.x / pt3d.z,
-      y: ch/2 + focal * pt3d.y / pt3d.z,
-      z: pt3d.z,
-    };
-  }
-
-  // ====================== ORBITING DOTS ======================
-  // phi(t) sweeps the FULL 0..2*pi circle once per PERIOD, continuously in
-  // one direction — a real orbit, not a back-and-forth swing. Every dot
-  // shares the same PERIOD (only phase/ring differ), so the whole scene is
-  // exactly back to its starting state every PERIOD seconds. Half of every
-  // orbit falls behind the camera's near clip plane — the dot is simply
-  // not drawn while it's back there (see renderFrame), but phi keeps
-  // advancing regardless, so it's still genuinely orbiting the whole ring.
-  const BASE_PERIOD = 6; // seconds, at 1.0x speed
-  // Dots are distributed round-robin across the 4 rings and spread evenly
-  // around the full circle, so any count from 1 to 16 stays symmetric
-  // rather than clumping on one ring.
-  function buildDots(count){
-    const dots = [];
-    for(let i=0; i<count; i++){
-      dots.push({ ring: i % RINGS.length, phase: (Math.PI * 2 * i) / count });
+  (function normalizeHomes() {
+    for (var i = 0; i < SPHERES.length; i++) {
+      var h = SPHERES[i].home;
+      var m = Math.sqrt(h[0] * h[0] + h[1] * h[1] + h[2] * h[2]);
+      SPHERES[i].home = [h[0] / m, h[1] / m, h[2] / m];
     }
-    return dots;
+  })();
+  var REF_STAGE = 600;
+  var BASE_PERIOD = 5; // seconds, at 1.00x speed
+  // Opens on a balanced frame where the three sit at visibly different
+  // depths and overlap, so the layering reads at a glance. A constant
+  // offset doesn't touch the cycle length, so loops still close.
+  var PHASE_OFFSET = 0.959;
+
+  var state = {
+    speed: 1.0,
+    range: 170,
+    colors: {
+      a: colorInputs.a.value,
+      b: colorInputs.b.value,
+      c: colorInputs.c.value,
+      bg: colorInputs.bg.value
+    }
+  };
+
+  function currentPeriod() { return BASE_PERIOD / state.speed; }
+
+  function refreshReadouts() {
+    speedValue.textContent = state.speed.toFixed(2) + "×";
+    rangeValue.textContent = state.range + " px";
+    var loops = parseInt(loopsSelect.value, 10);
+    durationValue.textContent = (currentPeriod() * loops).toFixed(1) + "s";
   }
-  let DOTS = buildDots(3);
 
-  // ====================== FLAT VIEW ======================
-  // A straight-on, outside view of the same 4 rings and dots — no camera,
-  // no near-clip half-hidden behind you. Each ring becomes a plain circle
-  // centered on the canvas; dots orbit their own circle at the same
-  // phi(t) used by the perspective view, always visible, full size, full
-  // brightness — "so you can see the concentric circles and the dots
-  // revolving around them" without anything ever hiding behind the
-  // camera.
-  //
-  // Ring i's radius (as a fraction of min(cw,ch)/2) is
-  // flatOrbitSize - i*flatSpacing, so ring 0 is always the outermost —
-  // both adjustable live via the Flat Layout sliders. Clamped to a small
-  // positive floor so an aggressive spacing can't push an inner ring to
-  // (or past) zero/negative radius.
-  function flatRadii(){
-    return RINGS.map((_, i) => Math.max(0.02, flatOrbitSize - i * flatSpacing));
+  speedSlider.addEventListener("input", function () {
+    state.speed = parseInt(speedSlider.value, 10) / 100;
+    refreshReadouts();
+  });
+  rangeSlider.addEventListener("input", function () {
+    state.range = parseInt(rangeSlider.value, 10);
+    refreshReadouts();
+  });
+  loopsSelect.addEventListener("change", refreshReadouts);
+  colorInputs.a.addEventListener("input", function () { state.colors.a = colorInputs.a.value; });
+  colorInputs.b.addEventListener("input", function () { state.colors.b = colorInputs.b.value; });
+  colorInputs.c.addEventListener("input", function () { state.colors.c = colorInputs.c.value; });
+  colorInputs.bg.addEventListener("input", function () { state.colors.bg = colorInputs.bg.value; });
+
+  refreshReadouts();
+
+  // ---- canvas sizing --------------------------------------------------
+  var cssW = 0, cssH = 0, spriteDpr = 1;
+
+  function fitCanvas() {
+    var rect = stageWrap.getBoundingClientRect();
+    var dpr = Math.min(window.devicePixelRatio || 1, 2);
+    spriteDpr = dpr;
+    cssW = rect.width;
+    cssH = rect.height;
+    canvas.width = Math.max(1, Math.round(cssW * dpr));
+    canvas.height = Math.max(1, Math.round(cssH * dpr));
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
   }
 
-  // ====================== STATE ======================
-  let viewMode = 'perspective'; // 'perspective' | 'flat' | 'merge'
-  let flatOrbitSize = 0.65; // fraction of min(cw,ch)/2 — outermost ring's radius
-  let flatSpacing = 0.15;   // fraction of min(cw,ch)/2 — gap between consecutive rings
-  let flatWidthTaper = 0;   // -1..1 — negative thins outer rings, positive thickens them, 0 = uniform
-  let mergeCycles = 4;      // orbit rotations per full drift-together-and-apart cycle, for the Merge view
-  let lineColors = ['#aab0bd', '#aab0bd', '#aab0bd', '#aab0bd']; // one per RINGS index
-  let dotColors = ['#ff2ea6', '#ff2ea6', '#ff2ea6', '#ff2ea6']; // one per RINGS index — a dot takes its color from the ring it orbits
-  let bgColor = '#050506';
-  let bgEnabled = true;
-  let speedMult = 1.0;
-  let thickness = 2.0;
-  let dotRadius = 7;
-  let glowEnabled = true;
+  fitCanvas();
+  if (window.ResizeObserver) {
+    new ResizeObserver(fitCanvas).observe(stageWrap);
+  } else {
+    window.addEventListener("resize", fitCanvas);
+  }
 
-  function period(){ return BASE_PERIOD / speedMult; }
+  // ---- color mixing -----------------------------------------------
+  function hexToRgb(hex) {
+    hex = hex.replace("#", "");
+    if (hex.length === 3) hex = hex.split("").map(function (c) { return c + c; }).join("");
+    var num = parseInt(hex, 16);
+    return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+  }
 
-  const canvas = document.getElementById('stage');
-  const ctx = canvas.getContext('2d');
+  function mix(hex, targetHex, t) {
+    var a = hexToRgb(hex), b = hexToRgb(targetHex);
+    var r = Math.round(a[0] + (b[0] - a[0]) * t);
+    var g = Math.round(a[1] + (b[1] - a[1]) * t);
+    var bl = Math.round(a[2] + (b[2] - a[2]) * t);
+    return "rgb(" + r + "," + g + "," + bl + ")";
+  }
 
-  function clamp01(v){ return Math.max(0, Math.min(1, v)); }
-  function lerp(a, b, t){ return a + (b-a)*t; }
+  // ---- sphere rendering ---------------------------------------------
+  // A sphere's shading never changes as it moves, so each one is drawn
+  // once into its own transparent layer and then blitted per frame. The
+  // layer is also what makes the feathered silhouette possible: erasing
+  // the rim would punch through the background on the shared canvas.
+  var SPRITE_PAD = 2;
+  var spriteCanvases = [];
+  var spriteKeys = [];
 
-  // Renders one deterministic frame at elapsed time `tSec` (seconds since
-  // the orbit's own t=0) into the given context/canvas size — used both by
-  // the live rAF loop and by the video exporter, so preview and export are
-  // pixel-for-pixel the same math. Dispatches on viewMode; all three
-  // branches share every other control (colors, thickness, dot size/
-  // count, speed, glow) — only the geometry changes.
-  function renderFrame(g, cw, ch, tSec){
+  function makeSphereSprite(r, hex, dpr) {
+    var span = r + SPRITE_PAD;
+    var c = document.createElement("canvas");
+    c.width = Math.max(1, Math.ceil(span * 2 * dpr));
+    c.height = c.width;
+    var g = c.getContext("2d");
+    g.scale(dpr, dpr);
+    var cx = span, cy = span;
+
+    // Body — light enters from the upper right, so the tint stays washed
+    // out there and gathers into the lower-left rim. Offsetting the
+    // gradient origin (rather than shading concentrically) is what keeps
+    // it reading as a lit volume instead of a printed disc.
+    var ox = cx + r * 0.24, oy = cy - r * 0.28;
+    var body = g.createRadialGradient(ox, oy, r * 0.02, ox, oy, r * 1.37);
+    body.addColorStop(0.00, mix(hex, "#ffffff", 0.94));
+    body.addColorStop(0.30, mix(hex, "#ffffff", 0.87));
+    body.addColorStop(0.50, mix(hex, "#ffffff", 0.79));
+    body.addColorStop(0.75, mix(hex, "#ffffff", 0.64));
+    body.addColorStop(0.92, mix(hex, "#ffffff", 0.50));
+    body.addColorStop(1.00, mix(hex, "#ffffff", 0.42));
+    g.beginPath();
+    g.arc(cx, cy, r, 0, Math.PI * 2);
+    g.fillStyle = body;
+    g.fill();
+
     g.save();
-    g.clearRect(0, 0, cw, ch);
-    if(bgEnabled){
-      g.fillStyle = bgColor;
-      g.fillRect(0, 0, cw, ch);
-    }
-    if(viewMode === 'flat') renderFlat(g, cw, ch, tSec);
-    else if(viewMode === 'merge') renderMerge(g, cw, ch, tSec);
-    else renderPerspective(g, cw, ch, tSec);
+    g.beginPath();
+    g.arc(cx, cy, r, 0, Math.PI * 2);
+    g.clip();
+
+    // Light pooling low in the body, the way it does inside frosted glass.
+    var bx = cx + r * 0.05, by = cy + r * 0.38;
+    var bloom = g.createRadialGradient(bx, by, 0, bx, by, r * 0.80);
+    bloom.addColorStop(0, "rgba(255,255,255,0.44)");
+    bloom.addColorStop(0.55, "rgba(255,255,255,0.15)");
+    bloom.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = bloom;
+    g.fillRect(cx - r, cy - r, r * 2, r * 2);
+
+    // A whisper of sheen on the lit shoulder — enough to read as glass.
+    var sx = cx + r * 0.20, sy = cy - r * 0.34;
+    var sheen = g.createRadialGradient(sx, sy, 0, sx, sy, r * 0.85);
+    sheen.addColorStop(0, "rgba(255,255,255,0.20)");
+    sheen.addColorStop(1, "rgba(255,255,255,0)");
+    g.fillStyle = sheen;
+    g.fillRect(cx - r, cy - r, r * 2, r * 2);
     g.restore();
+
+    // Feathered silhouette: a glass edge falls away, it doesn't cut.
+    g.globalCompositeOperation = "destination-out";
+    var feather = g.createRadialGradient(cx, cy, r * 0.88, cx, cy, r);
+    feather.addColorStop(0, "rgba(0,0,0,0)");
+    feather.addColorStop(0.7, "rgba(0,0,0,0.04)");
+    feather.addColorStop(1, "rgba(0,0,0,0.5)");
+    g.fillStyle = feather;
+    g.fillRect(0, 0, span * 2, span * 2);
+
+    return c;
   }
 
-  // The Merge view's own loop length differs from the other views': its
-  // drift-together-and-apart breathing has a period of mergeCycles full
-  // orbit rotations, not just one. Used by the video exporter so a
-  // recorded "loop" actually covers the whole breathing cycle.
-  function loopDurationSeconds(){
-    return viewMode === 'merge' ? mergeCycles * period() : period();
+  function sphereSprite(index, r, hex) {
+    var key = hex + "|" + r + "|" + spriteDpr;
+    if (spriteKeys[index] !== key) {
+      spriteCanvases[index] = makeSphereSprite(r, hex, spriteDpr);
+      spriteKeys[index] = key;
+    }
+    return spriteCanvases[index];
   }
 
-  function renderPerspective(g, cw, ch, tSec){
-    g.lineCap = 'round';
-    const STEPS = 400;
-    RINGS.forEach((ring, ringIdx) => {
-      const rgb = hexToRgb(lineColors[ringIdx]);
-      // The ring's own farthest reach (straight ahead, phi = pi/2) — used
-      // to normalize its near/far depth fade independent of the other
-      // rings' tilt.
-      const farZ = Math.max(NEAR_Z * 1.5, ring.R * Math.sin(ring.theta));
-      let prevProj = null;
-      for(let i=0; i<=STEPS; i++){
-        const phi = (i/STEPS) * Math.PI * 2;
-        const pt3d = ringPoint3D(ring, phi);
-        const proj = project(pt3d, cw, ch);
-        if(proj && prevProj){
-          // depth: 0 = right at the camera (near clip, flung to the
-          // screen edges), 1 = dead ahead at this ring's farthest point
-          // (the "waist" near screen-center) — near is drawn bold and
-          // bright, far fades away, the opposite of a flat edge fade, so
-          // the scene actually reads as receding in front of you.
-          const depth = clamp01((proj.z - NEAR_Z) / (farZ - NEAR_Z));
-          g.strokeStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${lerp(0.95, 0.22, depth)})`;
-          g.lineWidth = lerp(thickness * 1.7, thickness * 0.5, depth);
-          g.beginPath();
-          g.moveTo(prevProj.x, prevProj.y);
-          g.lineTo(proj.x, proj.y);
-          g.stroke();
-        }
-        prevProj = proj;
+  function spherePosition(sph, phase, rangePx) {
+    // the together-and-apart sweep, offset per sphere so they don't all
+    // draw in on the same beat
+    var breathe = CLUSTER_MIN +
+      (1 - CLUSTER_MIN) * (0.5 + 0.5 * Math.sin(phase + sph.breathePhase)) +
+      BREATHE_WOBBLE * Math.sin(phase * 3 + sph.wobblePhase);
+
+    var theta = sph.wobblePhase + sph.orbitTurns * phase +
+      sph.angleWobble * Math.sin(phase * 2 + sph.wobblePhase);
+
+    // the local orbit, traced flat then tilted into the scene
+    var orbit = sph.orbitRadius * rangePx;
+    var px = Math.cos(theta) * orbit;
+    var py = Math.sin(theta) * orbit;
+    var ci = Math.cos(sph.inclination), si = Math.sin(sph.inclination);
+    var y1 = py * ci, z1 = py * si;
+    var cn = Math.cos(sph.node), sn = Math.sin(sph.node);
+
+    var hd = sph.homeDist * rangePx * breathe;
+    return {
+      x: sph.home[0] * hd + px * cn + z1 * sn,
+      y: sph.home[1] * hd + y1,
+      z: sph.home[2] * hd - px * sn + z1 * cn
+    };
+  }
+
+  function perspective(z, focal) {
+    return focal / Math.max(focal * 0.25, focal - z);
+  }
+
+  // Perspective makes reach impossible to solve in closed form, so walk the
+  // cycle once and measure it. Also yields each sphere's largest on-screen
+  // radius, which is the size its sprite gets drawn at — everything nearer
+  // the back is a cheap downscale of that same bitmap.
+  var layoutCache = { key: "", fit: 1, maxRadius: [], kMin: 1, kMax: 1 };
+
+  function layoutFor(S, rangePx) {
+    var key = Math.round(S) + "|" + Math.round(rangePx * 10);
+    if (layoutCache.key === key) return layoutCache;
+
+    var focal = FOCAL_REF * (S / REF_STAGE);
+    var worst = 0, kMin = Infinity, kMax = 0;
+    var maxR = [];
+    var i;
+    for (i = 0; i < SPHERES.length; i++) maxR[i] = 0;
+
+    for (var step = 0; step < 720; step++) {
+      var p = (step / 720) * Math.PI * 2;
+      for (i = 0; i < SPHERES.length; i++) {
+        var sph = SPHERES[i];
+        var w = spherePosition(sph, p, rangePx);
+        var k = perspective(w.z, focal);
+        var sr = S * sph.radiusFrac * k;
+        var reach = Math.sqrt(w.x * w.x + w.y * w.y) * k + sr;
+        if (reach > worst) worst = reach;
+        if (sr > maxR[i]) maxR[i] = sr;
+        if (k < kMin) kMin = k;
+        if (k > kMax) kMax = k;
       }
-    });
+    }
 
-    // dots — phi sweeps the full circle every period; only the half in
-    // front of the camera is ever drawn, but it keeps orbiting regardless.
-    const t = tSec / period();
-    const FADE_Z = NEAR_Z * 3.2; // soft near-clip fade so a dot eases out of view rather than popping off
-    const REF_Z = 0.32; // a representative "close" depth, for perspective size scaling
-    DOTS.forEach(dot => {
-      const ring = RINGS[dot.ring];
-      const dc = dotColors[dot.ring];
-      const phi = Math.PI * 2 * t + dot.phase;
-      const pt3d = ringPoint3D(ring, phi);
-      const proj = project(pt3d, cw, ch);
-      if(!proj) return; // behind the camera right now — still orbiting, just not drawn
-      const fade = clamp01((proj.z - NEAR_Z) / (FADE_Z - NEAR_Z));
-      if(fade <= 0) return;
-      const scale = Math.max(0.35, Math.min(2.4, REF_Z / proj.z));
-      const r = dotRadius * scale;
-      if(glowEnabled){
-        g.shadowColor = dc;
-        g.shadowBlur = r * 3.2 * fade;
-      } else {
-        g.shadowBlur = 0;
-      }
-      g.globalAlpha = fade;
-      g.fillStyle = dc;
-      g.beginPath();
-      g.arc(proj.x, proj.y, r, 0, Math.PI*2);
-      g.fill();
-      g.shadowBlur = 0;
-      g.globalAlpha = 1;
-    });
+    var safe = S * 0.48;
+    var fit = worst > safe ? safe / worst : 1;
+    for (i = 0; i < SPHERES.length; i++) {
+      maxR[i] = Math.max(4, Math.round(maxR[i] * fit));
+    }
+    layoutCache.key = key;
+    layoutCache.fit = fit;
+    layoutCache.maxRadius = maxR;
+    layoutCache.kMin = kMin;
+    layoutCache.kMax = kMax;
+    return layoutCache;
   }
 
-  // Flat view: 4 plain concentric circles centered on the canvas, sized
-  // by flatRadii() (fractions of the canvas's shorter side, adjustable
-  // via the Flat Layout sliders). Dots orbit at the same phi(t) as the
-  // perspective view — same speed, same phase spacing, same loop period
-  // — just always drawn, since there's no camera here for anything to
-  // hide behind.
-  function renderFlat(g, cw, ch, tSec){
-    const cx = cw / 2, cy = ch / 2;
-    const baseRadius = Math.min(cw, ch) / 2;
-    const radii = flatRadii();
-    g.lineCap = 'round';
-    RINGS.forEach((_, ringIdx) => {
-      const rgb = hexToRgb(lineColors[ringIdx]);
-      const radius = radii[ringIdx] * baseRadius;
-      // Taper: ring 0 is outermost, so u=1 there and u=0 at the
-      // innermost ring — width scales linearly across that range, with
-      // flatWidthTaper (-1..1) controlling how much and in which
-      // direction, clamped so an extreme taper never zeroes out a line.
-      const u = (RINGS.length - 1 - ringIdx) / (RINGS.length - 1);
-      const widthMult = Math.max(0.15, 1 + flatWidthTaper * (u - 0.5) * 2);
-      g.strokeStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.9)`;
-      g.lineWidth = thickness * widthMult;
-      g.beginPath();
-      g.arc(cx, cy, radius, 0, Math.PI * 2);
-      g.stroke();
-    });
+  function draw(elapsedSec) {
+    if (cssW === 0) return;
+    ctx.clearRect(0, 0, cssW, cssH);
+    ctx.fillStyle = state.colors.bg;
+    ctx.fillRect(0, 0, cssW, cssH);
 
-    const t = tSec / period();
-    DOTS.forEach(dot => {
-      const dc = dotColors[dot.ring];
-      const radius = radii[dot.ring] * baseRadius;
-      const phi = Math.PI * 2 * t + dot.phase;
-      const x = cx + radius * Math.cos(phi);
-      const y = cy + radius * Math.sin(phi);
-      if(glowEnabled){
-        g.shadowColor = dc;
-        g.shadowBlur = dotRadius * 3.2;
-      } else {
-        g.shadowBlur = 0;
-      }
-      g.fillStyle = dc;
-      g.beginPath();
-      g.arc(x, y, dotRadius, 0, Math.PI * 2);
-      g.fill();
-      g.shadowBlur = 0;
-    });
+    var S = Math.min(cssW, cssH);
+    var cx0 = cssW / 2, cy0 = cssH / 2;
+    var omega = (2 * Math.PI / BASE_PERIOD) * state.speed;
+    var phase = elapsedSec * omega + PHASE_OFFSET;
+    var rangePx = state.range * (S / REF_STAGE);
+    var layout = layoutFor(S, rangePx);
+    var focal = FOCAL_REF * (S / REF_STAGE);
+    var kSpread = layout.kMax - layout.kMin;
+
+    var order = [];
+    for (var i = 0; i < SPHERES.length; i++) {
+      var sph = SPHERES[i];
+      var w = spherePosition(sph, phase, rangePx);
+      var k = perspective(w.z, focal);
+      order.push({
+        index: i,
+        z: w.z,
+        x: cx0 + w.x * k * layout.fit,
+        y: cy0 + w.y * k * layout.fit,
+        radius: S * sph.radiusFrac * k * layout.fit,
+        depth: kSpread > 0 ? (k - layout.kMin) / kSpread : 1
+      });
+    }
+    // Farthest first — whichever sphere is nearest the camera lands on top.
+    order.sort(function (m, n) { return m.z - n.z; });
+
+    for (var d = 0; d < order.length; d++) {
+      var item = order[d];
+      var maxR = layout.maxRadius[item.index];
+      var sprite = sphereSprite(item.index, maxR, state.colors[SPHERES[item.index].key]);
+      var span = (maxR + SPRITE_PAD) * (item.radius / maxR);
+      // A touch of haze on the far ones; the near one stays fully present.
+      ctx.globalAlpha = 0.84 + 0.16 * item.depth;
+      ctx.drawImage(sprite, item.x - span, item.y - span, span * 2, span * 2);
+    }
+    ctx.globalAlpha = 1;
   }
 
-  // Merge view: three orbits (rings 0, 1, 2 — reusing the same Orbit
-  // size/Ring spacing sliders as Flat, so "spread" here means the same
-  // three outermost radii Flat would show), each carrying exactly one
-  // dot, 120 degrees apart. Every ring's CURRENT radius drifts toward a
-  // shared meeting radius (ring 1's own spread radius — the natural
-  // middle value) and back, on mergeFactor(t): a raised-cosine that's
-  // exactly 0 at t=0, peaks at 1 halfway through the cycle (fully
-  // merged — all three dots now 120 degrees apart on one shared orbit),
-  // and returns to exactly 0 at t=mergeCycles*period(). Because that's a
-  // whole multiple of the rotation period, the dots' angular phase lines
-  // up again too, so the entire scene is back to its exact starting
-  // state — a real loop, not an approximation.
-  function renderMerge(g, cw, ch, tSec){
-    const cx = cw / 2, cy = ch / 2;
-    const baseRadius = Math.min(cw, ch) / 2;
-    const spread = [0, 1, 2].map(i => Math.max(0.02, flatOrbitSize - i * flatSpacing));
-    const mergedFrac = spread[1];
-    const cycleSeconds = mergeCycles * period();
-    const mergeFactor = (1 - Math.cos(2 * Math.PI * tSec / cycleSeconds)) / 2; // 0 -> 1 -> 0
-    const radiiFrac = spread.map(s => lerp(s, mergedFrac, mergeFactor));
+  // ---- animation loop ----------------------------------------------
+  var startTime = performance.now();
+  var recording = false;
+  var recStartTime = 0;
+  var recTargetMs = 0;
 
-    g.lineCap = 'round';
-    [0, 1, 2].forEach(ringIdx => {
-      const rgb = hexToRgb(lineColors[ringIdx]);
-      const radius = radiiFrac[ringIdx] * baseRadius;
-      const u = (2 - ringIdx) / 2; // 1 = outermost (ring 0), 0 = innermost (ring 2), matching Flat's taper direction
-      const widthMult = Math.max(0.15, 1 + flatWidthTaper * (u - 0.5) * 2);
-      g.strokeStyle = `rgba(${rgb[0]},${rgb[1]},${rgb[2]},0.9)`;
-      g.lineWidth = thickness * widthMult;
-      g.beginPath();
-      g.arc(cx, cy, radius, 0, Math.PI * 2);
-      g.stroke();
-    });
-
-    const t = tSec / period();
-    [0, 1, 2].forEach(ringIdx => {
-      const dc = dotColors[ringIdx];
-      const radius = radiiFrac[ringIdx] * baseRadius;
-      const phi = Math.PI * 2 * t + (Math.PI * 2 * ringIdx) / 3;
-      const x = cx + radius * Math.cos(phi);
-      const y = cy + radius * Math.sin(phi);
-      if(glowEnabled){
-        g.shadowColor = dc;
-        g.shadowBlur = dotRadius * 3.2;
-      } else {
-        g.shadowBlur = 0;
-      }
-      g.fillStyle = dc;
-      g.beginPath();
-      g.arc(x, y, dotRadius, 0, Math.PI * 2);
-      g.fill();
-      g.shadowBlur = 0;
-    });
-  }
-
-  function hexToRgb(hex){
-    hex = hex.replace('#','');
-    return [parseInt(hex.substr(0,2),16), parseInt(hex.substr(2,2),16), parseInt(hex.substr(4,2),16)];
-  }
-
-  // ====================== LIVE LOOP ======================
-  let startTime = performance.now();
-  function tick(now){
-    const tSec = (now - startTime) / 1000;
-    renderFrame(ctx, canvas.width, canvas.height, tSec);
+  function tick(now) {
+    var elapsedSec = (now - startTime) / 1000;
+    draw(elapsedSec);
+    if (recording) {
+      var recElapsed = (now - recStartTime) / 1000;
+      recTimeEl.textContent = Math.min(recElapsed, recTargetMs / 1000).toFixed(1) + "s";
+    }
     requestAnimationFrame(tick);
   }
   requestAnimationFrame(tick);
 
-  // ====================== CONTROLS ======================
-  const elColLines = RINGS.map((_, i) => document.getElementById('col-line-' + i));
-  const elColDots = RINGS.map((_, i) => document.getElementById('col-dot-' + i));
-  const elColBg = document.getElementById('col-bg');
-  const elChkBg = document.getElementById('chk-bg');
-  const elRowColBg = document.getElementById('row-col-bg');
-  const elRngSpeed = document.getElementById('rng-speed');
-  const elRngThickness = document.getElementById('rng-thickness');
-  const elRngDotSize = document.getElementById('rng-dotsize');
-  const elRngDotCount = document.getElementById('rng-dotcount');
-  const elChkGlow = document.getElementById('chk-glow');
+  // ---- export via downloads capability ------------------------------
+  var downloadsCap = null;
+  var downloadsReady = false;
 
-  elColLines.forEach((el, i) => {
-    el.addEventListener('input', () => {
-      lineColors[i] = el.value;
-      document.getElementById('val-col-line-' + i).textContent = el.value.toUpperCase();
-    });
-  });
-  elColDots.forEach((el, i) => {
-    el.addEventListener('input', () => {
-      dotColors[i] = el.value;
-      document.getElementById('val-col-dot-' + i).textContent = el.value.toUpperCase();
-    });
-  });
-  elColBg.addEventListener('input', () => {
-    bgColor = elColBg.value;
-    document.getElementById('val-col-bg').textContent = bgColor.toUpperCase();
-  });
-  elChkBg.addEventListener('change', () => {
-    bgEnabled = elChkBg.checked;
-    elRowColBg.style.opacity = bgEnabled ? '1' : '0.4';
-    elColBg.disabled = !bgEnabled;
-  });
-  elRngSpeed.addEventListener('input', () => {
-    speedMult = parseInt(elRngSpeed.value) / 100;
-    document.getElementById('val-speed').textContent = speedMult.toFixed(2) + 'x';
-  });
-  elRngThickness.addEventListener('input', () => {
-    thickness = parseInt(elRngThickness.value) / 10;
-    document.getElementById('val-thickness').textContent = thickness.toFixed(1);
-  });
-  elRngDotSize.addEventListener('input', () => {
-    dotRadius = parseInt(elRngDotSize.value);
-    document.getElementById('val-dotsize').textContent = dotRadius;
-  });
-  elRngDotCount.addEventListener('input', () => {
-    const count = parseInt(elRngDotCount.value);
-    document.getElementById('val-dotcount').textContent = count;
-    DOTS = buildDots(count);
-  });
-  elChkGlow.addEventListener('change', () => { glowEnabled = elChkGlow.checked; });
-
-  const btnViewPerspective = document.getElementById('btn-view-perspective');
-  const btnViewFlat = document.getElementById('btn-view-flat');
-  const btnViewMerge = document.getElementById('btn-view-merge');
-  const sectionLayout = document.getElementById('section-layout');
-  const sectionMerge = document.getElementById('section-merge');
-  const rowDotCount = document.getElementById('row-dotcount');
-  function setViewMode(mode){
-    viewMode = mode;
-    btnViewPerspective.className = mode === 'perspective' ? 'btn-primary' : 'btn-secondary';
-    btnViewFlat.className = mode === 'flat' ? 'btn-primary' : 'btn-secondary';
-    btnViewMerge.className = mode === 'merge' ? 'btn-primary' : 'btn-secondary';
-    sectionLayout.style.display = (mode === 'flat' || mode === 'merge') ? '' : 'none';
-    sectionMerge.style.display = mode === 'merge' ? '' : 'none';
-    rowDotCount.style.display = mode === 'merge' ? 'none' : ''; // Merge always uses exactly 3 dots, one per orbit
+  function setRailDisabled(disabled) {
+    railInputs.forEach(function (el) { el.disabled = disabled; });
   }
-  btnViewPerspective.addEventListener('click', () => setViewMode('perspective'));
-  btnViewFlat.addEventListener('click', () => setViewMode('flat'));
-  btnViewMerge.addEventListener('click', () => setViewMode('merge'));
 
-  const elRngMergeCycles = document.getElementById('rng-merge-cycles');
-  elRngMergeCycles.addEventListener('input', () => {
-    mergeCycles = parseInt(elRngMergeCycles.value);
-    document.getElementById('val-merge-cycles').textContent = mergeCycles;
-  });
-
-  const elRngFlatSize = document.getElementById('rng-flat-size');
-  const elRngFlatSpacing = document.getElementById('rng-flat-spacing');
-  const elRngFlatTaper = document.getElementById('rng-flat-taper');
-  elRngFlatSize.addEventListener('input', () => {
-    flatOrbitSize = parseInt(elRngFlatSize.value) / 100;
-    document.getElementById('val-flat-size').textContent = elRngFlatSize.value;
-  });
-  elRngFlatSpacing.addEventListener('input', () => {
-    flatSpacing = parseInt(elRngFlatSpacing.value) / 100;
-    document.getElementById('val-flat-spacing').textContent = elRngFlatSpacing.value;
-  });
-  elRngFlatTaper.addEventListener('input', () => {
-    flatWidthTaper = parseInt(elRngFlatTaper.value) / 100;
-    document.getElementById('val-flat-taper').textContent = elRngFlatTaper.value;
-  });
-
-  let exportScale = 1;
-  const btnRes1x = document.getElementById('btn-res-1x');
-  const btnRes2x = document.getElementById('btn-res-2x');
-  function setResScale(scale){
-    exportScale = scale;
-    btnRes1x.className = scale === 1 ? 'btn-primary' : 'btn-secondary';
-    btnRes2x.className = scale === 2 ? 'btn-primary' : 'btn-secondary';
-    document.getElementById('badge').textContent = `${W*exportScale}×${H*exportScale} export · live preview`;
+  // Inside the Claude artifact viewer the sandbox blocks downloads a page
+  // starts itself, so saving has to go through the host. Served as an
+  // ordinary page there is no host — and no sandbox — so a blob link works.
+  function nativeSave(request) {
+    var blob = request.data instanceof Blob ? request.data : new Blob([request.data]);
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement("a");
+    link.href = url;
+    link.download = request.filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    setTimeout(function () { URL.revokeObjectURL(url); }, 10000);
+    return Promise.resolve({ status: "saved" });
   }
-  btnRes1x.addEventListener('click', () => setResScale(1));
-  btnRes2x.addEventListener('click', () => setResScale(2));
 
-  // ====================== VIDEO EXPORT ======================
-  // Same technique as Flow Weave's own exporter: canvas.captureStream() +
-  // MediaRecorder, using Chrome/Edge's native MP4 muxing (no external
-  // library). Frames are drawn on a fixed real-time cadence (MediaRecorder
-  // has no notion of "this frame belongs at time X"), but because the
-  // scene's own motion is a pure function of tSec with period `period()`,
-  // recording for exactly N * period() seconds always lands back on frame
-  // 0's state — the clip loops with no visible seam.
-  const VIDEO_FPS = 30;
-  const VIDEO_BITRATE = 20_000_000;
-  const VIDEO_MIME_CANDIDATES = ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4;codecs=avc1', 'video/mp4'];
+  function initDownloads() {
+    function settle(cap) {
+      downloadsCap = cap || null;
+      downloadsReady = true;
+      if (!downloadsCap) exportHint.textContent = "This view can't offer file downloads.";
+      updateExportButton();
+    }
+    if (!window.claude || typeof window.claude.use !== "function") {
+      settle({ save: nativeSave });
+      return;
+    }
+    window.claude.use("downloads").then(settle).catch(function () { settle(null); });
+  }
 
-  class VideoExportCancelled extends Error {}
-  let videoExportInProgress = false;
-  let videoExportCancelRequested = false;
+  // H.264 first: it's the MP4 every editor and phone will open. Browsers
+  // built without it still mux MP4 using VP9 or AV1, which is a real .mp4
+  // but not one every app reads — hence the caveat after saving.
+  var FORMATS = {
+    mp4: {
+      label: "MP4",
+      ext: "mp4",
+      candidates: [
+        "video/mp4;codecs=avc1.640028",
+        "video/mp4;codecs=avc1.42E01E",
+        "video/mp4;codecs=avc1",
+        "video/mp4;codecs=h264",
+        "video/mp4"
+      ]
+    },
+    webm: {
+      label: "WebM",
+      ext: "webm",
+      candidates: [
+        "video/webm;codecs=vp9",
+        "video/webm;codecs=vp8",
+        "video/webm"
+      ]
+    }
+  };
 
-  document.getElementById('btn-export-video').addEventListener('click', async () => {
-    const progress = document.getElementById('progress');
-    const btn = document.getElementById('btn-export-video');
+  function supportedMime(formatKey) {
+    if (!window.MediaRecorder) return null;
+    var list = FORMATS[formatKey].candidates;
+    for (var i = 0; i < list.length; i++) {
+      if (MediaRecorder.isTypeSupported(list[i])) return list[i];
+    }
+    return null;
+  }
 
-    if(videoExportInProgress){
-      videoExportCancelRequested = true;
-      btn.textContent = 'Cancelling…';
-      btn.disabled = true;
+  // null when the browser accepted a bare container and picked for itself.
+  function codecLabel(mimeType) {
+    if (mimeType.indexOf("avc1") !== -1 || mimeType.indexOf("h264") !== -1) return "H.264";
+    if (mimeType.indexOf("av01") !== -1) return "AV1";
+    if (mimeType.indexOf("vp9") !== -1) return "VP9";
+    if (mimeType.indexOf("vp8") !== -1) return "VP8";
+    return null;
+  }
+
+  function updateExportButton() {
+    if (recording) return;
+    var format = FORMATS[formatSelect.value];
+    if (!downloadsReady) {
+      exportBtn.disabled = true;
+      exportBtn.textContent = "Loading exporter…";
+    } else if (!downloadsCap) {
+      exportBtn.disabled = true;
+      exportBtn.textContent = "Export unavailable here";
+    } else if (!supportedMime(formatSelect.value)) {
+      exportBtn.disabled = true;
+      exportBtn.textContent = format.label + " unavailable here";
+    } else {
+      exportBtn.disabled = false;
+      exportBtn.textContent = "Export " + format.label;
+    }
+  }
+
+  function refreshFormat() {
+    var mime = supportedMime(formatSelect.value);
+    formatNote.textContent = mime ? (codecLabel(mime) || "browser default") : "unavailable";
+    updateExportButton();
+  }
+
+  formatSelect.addEventListener("change", refreshFormat);
+
+  (function initFormats() {
+    var mp4Ok = !!supportedMime("mp4");
+    var webmOk = !!supportedMime("webm");
+    formatSelect.querySelector('option[value="mp4"]').disabled = !mp4Ok;
+    formatSelect.querySelector('option[value="webm"]').disabled = !webmOk;
+    if (!mp4Ok && webmOk) formatSelect.value = "webm";
+    refreshFormat();
+  })();
+
+  initDownloads();
+
+  var activeRecorder = null;
+  var activeStream = null;
+  var cancelled = false;
+
+  exportBtn.addEventListener("click", function () {
+    if (recording) return;
+    if (!downloadsCap) {
+      exportHint.textContent = "This view can't offer file downloads.";
+      return;
+    }
+    if (!window.MediaRecorder) {
+      exportHint.textContent = "This browser can't record video.";
+      return;
+    }
+    var format = FORMATS[formatSelect.value];
+    var mimeType = supportedMime(formatSelect.value);
+    if (!mimeType) {
+      exportHint.textContent = format.label + " recording isn't supported in this browser — try the other format.";
       return;
     }
 
-    if(typeof MediaRecorder === 'undefined' || !HTMLCanvasElement.prototype.captureStream){
-      progress.textContent = 'Video export needs a browser with MediaRecorder + canvas.captureStream support (Chrome or Edge).';
-      setTimeout(()=>{ progress.textContent=''; }, 4500);
+    var loops = parseInt(loopsSelect.value, 10);
+    var period = currentPeriod();
+    recTargetMs = period * loops * 1000;
+
+    var stream = canvas.captureStream(60);
+    activeStream = stream;
+    var chunks = [];
+    var recorder;
+    try {
+      recorder = new MediaRecorder(stream, { mimeType: mimeType, videoBitsPerSecond: 6000000 });
+    } catch (e) {
+      exportHint.textContent = "Couldn't start the recorder in this browser.";
       return;
     }
-    const mimeType = VIDEO_MIME_CANDIDATES.find(m => MediaRecorder.isTypeSupported(m));
-    if(!mimeType){
-      progress.textContent = 'MP4 recording needs Chrome or Edge — this browser doesn\'t support it.';
-      setTimeout(()=>{ progress.textContent=''; }, 4500);
-      return;
-    }
+    activeRecorder = recorder;
+    cancelled = false;
 
-    const originalLabel = btn.textContent;
-    videoExportInProgress = true;
-    videoExportCancelRequested = false;
-    btn.textContent = 'Cancel export';
-    let exportCanvas;
+    recorder.ondataavailable = function (e) {
+      if (e.data && e.data.size) chunks.push(e.data);
+    };
 
-    try{
-      const loops = Math.max(1, Math.min(10, parseInt(document.getElementById('num-loops').value) || 1));
-      const loopSeconds = loopDurationSeconds();
-      const totalSeconds = loopSeconds * loops;
-      const outW = W * exportScale, outH = H * exportScale;
+    recorder.onstop = function () {
+      stream.getTracks().forEach(function (t) { t.stop(); });
+      recording = false;
+      setRailDisabled(false);
+      recBadge.hidden = true;
+      cancelBtn.hidden = true;
+      updateExportButton();
 
-      exportCanvas = document.createElement('canvas');
-      exportCanvas.width = outW; exportCanvas.height = outH;
-      // Kept in the layout (off-screen, not display:none) — some browsers
-      // only paint, and therefore only feed real frames into
-      // captureStream(), for a canvas that's part of the rendered document.
-      exportCanvas.style.cssText = 'position:fixed;left:-99999px;top:0;';
-      document.body.appendChild(exportCanvas);
-      const ectx = exportCanvas.getContext('2d');
-      ectx.imageSmoothingEnabled = true;
-      ectx.imageSmoothingQuality = 'high';
+      if (cancelled) {
+        exportHint.textContent = "Recording cancelled.";
+        statusLive.textContent = "Recording cancelled.";
+        return;
+      }
 
-      const stream = exportCanvas.captureStream(VIDEO_FPS);
-      const [videoTrack] = stream.getVideoTracks();
-      const recorder = new MediaRecorder(stream, { mimeType, videoBitsPerSecond: VIDEO_BITRATE });
-      const chunks = [];
-      recorder.ondataavailable = (e) => { if(e.data && e.data.size) chunks.push(e.data); };
-      const stopped = new Promise((resolve) => { recorder.onstop = resolve; });
-
-      recorder.start();
-      const totalMs = totalSeconds * 1000;
-      const frameInterval = 1000 / VIDEO_FPS;
-      const startT = performance.now();
-      let nextDrawTime = startT;
-      let framesDrawn = 0;
-      let cancelled = false;
-      while(true){
-        if(videoExportCancelRequested){ cancelled = true; break; }
-        const now = performance.now();
-        const elapsed = now - startT;
-        if(elapsed >= totalMs) break;
-        if(now < nextDrawTime){
-          await new Promise(r => setTimeout(r, Math.min(nextDrawTime - now, 50)));
-          continue;
+      var blob = new Blob(chunks, { type: mimeType.split(";")[0] });
+      exportHint.textContent = "Saving…";
+      downloadsCap.save({ filename: "driftloop." + format.ext, data: blob }).then(function () {
+        var codec = codecLabel(mimeType);
+        var saved = "Saved as " + format.label + ".";
+        if (format.ext === "mp4" && codec !== "H.264") {
+          saved += " This browser has no H.264, so the MP4 uses " +
+            (codec || "its default codec") +
+            " — export WebM instead if an app won't open it.";
         }
-        // deterministic frame time, not wall-clock elapsed — guarantees
-        // the last frame lands exactly at loops*loopSeconds, not
-        // wherever real-time pacing happened to drift to.
-        const frameTSec = Math.min(elapsed, totalMs) / 1000;
-        renderFrame(ectx, outW, outH, frameTSec);
-        videoTrack.requestFrame();
-        framesDrawn++;
-        nextDrawTime += frameInterval;
-        progress.textContent = `Recording video: ${(elapsed/1000).toFixed(1)}s / ${totalSeconds.toFixed(1)}s…`;
-        await new Promise(r => setTimeout(r, 0));
-      }
-      recorder.stop();
-      await stopped;
-      if(cancelled) throw new VideoExportCancelled();
+        exportHint.textContent = saved;
+        statusLive.textContent = "Video saved.";
+      }).catch(function (err) {
+        var code = err && err.code;
+        if (code === "declined") {
+          exportHint.textContent = "Save cancelled.";
+        } else if (code === "rate_limited") {
+          exportHint.textContent = "Too many recent prompts — try again shortly.";
+        } else {
+          exportHint.textContent = "Couldn't save the video in this view.";
+        }
+        statusLive.textContent = exportHint.textContent;
+      });
+    };
 
-      const blob = new Blob(chunks, { type: mimeType });
-      // Some browser/GPU combinations silently produce an empty recording
-      // at larger resolutions (the encoder never emits a chunk, with no
-      // error event) — fail loudly instead of downloading a broken 0-byte
-      // file.
-      if(blob.size === 0){
-        throw new Error('The recording came out empty — this browser/GPU could not encode MP4 at this resolution. Try the 1600×600 export size, or a different Chrome/Edge build.');
-      }
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url; a.download = 'hero_orbit.mp4';
-      document.body.appendChild(a); a.click(); document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+    recording = true;
+    setRailDisabled(true);
+    exportBtn.disabled = true;
+    exportBtn.textContent = "Recording…";
+    cancelBtn.hidden = false;
+    recBadge.hidden = false;
+    recTotalEl.textContent = (recTargetMs / 1000).toFixed(1) + "s";
+    recTimeEl.textContent = "0.0s";
+    exportHint.textContent = "Recording — don't resize the window.";
+    statusLive.textContent = "Recording started.";
 
-      const avgFps = (framesDrawn / totalSeconds).toFixed(1);
-      progress.textContent = `Done — ${loops} loop${loops>1?'s':''} exported (~${avgFps}fps).`;
-      setTimeout(()=>{ progress.textContent=''; }, 4000);
-    } catch(err){
-      if(err instanceof VideoExportCancelled){
-        progress.textContent = 'Export cancelled.';
-        setTimeout(()=>{ progress.textContent=''; }, 3000);
-      } else {
-        progress.textContent = 'Video export failed: ' + (err && err.message ? err.message : err);
-      }
-    } finally {
-      if(exportCanvas && exportCanvas.parentNode) exportCanvas.parentNode.removeChild(exportCanvas);
-      videoExportInProgress = false;
-      videoExportCancelRequested = false;
-      btn.disabled = false;
-      btn.textContent = originalLabel;
-    }
+    recStartTime = performance.now();
+    recorder.start();
+    setTimeout(function () {
+      if (recorder.state !== "inactive") recorder.stop();
+    }, recTargetMs);
   });
 
-  setResScale(1);
+  cancelBtn.addEventListener("click", function () {
+    if (!recording || !activeRecorder) return;
+    cancelled = true;
+    if (activeRecorder.state !== "inactive") activeRecorder.stop();
+  });
 })();
 </script>
 </body>
