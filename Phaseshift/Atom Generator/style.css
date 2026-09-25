@@ -387,13 +387,15 @@ input[type="checkbox"] {
 
 .material-tick {
   flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   width: 16px;
-  text-align: center;
-  font-size: 12px;
-  line-height: 1;
+  height: 16px;
+  border-radius: 50%;
   opacity: 0;
   transform: scale(0.6);
-  transition: opacity 0.25s ease, transform 0.25s ease;
+  transition: opacity 0.25s ease, transform 0.25s ease, background-color 0.3s ease;
 }
 .material-tick.visible {
   opacity: 1;

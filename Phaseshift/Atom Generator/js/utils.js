@@ -3,7 +3,7 @@
 // Global canvas background color, shared across every animation and
 // controlled by the "BG" picker in the topbar (see app.js). Animations
 // read AppTheme.bgColor each frame instead of hardcoding black.
-const AppTheme = { bgColor: '#000000' };
+const AppTheme = { bgColor: '#0C0C0E' };
 
 function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
 function lerp(a, b, t) { return a + (b - a) * t; }

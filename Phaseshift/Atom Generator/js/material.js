@@ -133,7 +133,11 @@ class MaterialAnimation {
             <div class="material-band"></div>
             <div class="material-bar-fill hidden"></div>
           </div>
-          <span class="material-tick">&#10003;</span>
+          <span class="material-tick">
+            <svg viewBox="0 0 256 256" width="9" height="9" fill="#000">
+              <path d="M232.49,80.49l-128,128a12,12,0,0,1-17,0l-56-56a12,12,0,1,1,17-17L96,183,215.51,63.51a12,12,0,0,1,17,17Z"/>
+            </svg>
+          </span>
         </div>
       </div>`).join('');
 
@@ -251,7 +255,7 @@ class MaterialAnimation {
       const rowEl = this.overlay.querySelector(`.material-row[data-key="${r.key}"]`);
       const fillEl = rowEl.querySelector('.material-bar-fill');
       const tickEl = rowEl.querySelector('.material-tick');
-      tickEl.style.color = p.accentColor;
+      tickEl.style.backgroundColor = p.accentColor;
 
       if (stage === 'requirement') {
         fillEl.classList.add('hidden');
